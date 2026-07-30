@@ -32,11 +32,10 @@ namespace VramMonitor
                 SingleInstance.SignalExisting();
                 if (SingleInstance.ExistingIsElevated)
                 {
-                    MessageBox.Show(
-                        "O Monitor de VRAM já está em execução como administrador.\r\n\r\n" +
-                        "Procure o ícone na área de notificações (seta ^ ao lado do relógio) " +
-                        "e dê um duplo-clique para reabrir a janela.",
-                        "Monitor de VRAM", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    Settings st = Settings.Load();
+                    I18n.Init(I18n.Resolve(st.Language));
+                    MessageBox.Show(I18n.T("dialog.alreadyRunningElevated"), AppInfo.Name,
+                                    MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 return 0;
             }
@@ -80,7 +79,8 @@ namespace VramMonitor
         private static void Report(Exception ex)
         {
             string msg = ex == null ? "Erro desconhecido." : ex.ToString();
-            MessageBox.Show(msg, "Monitor de VRAM — erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(msg, AppInfo.Name + " — " + I18n.T("dialog.errorTitle"),
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

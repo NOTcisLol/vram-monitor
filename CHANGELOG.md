@@ -9,6 +9,42 @@ o `release.ps1` usa esta seção como corpo do release e se recusa a publicar se
 
 ## [Não lançado]
 
+## [1.1.0] — 2026-07-30
+
+### Adicionado
+
+- **Idiomas.** Todo o texto da interface saiu do código e foi para arquivos JSON, um por
+  idioma, com **inglês, português, espanhol, francês e alemão** embutidos no executável.
+  O seletor fica na barra (botão com o código do idioma, ex. `EN ▾`) e a troca é imediata,
+  sem reiniciar. **Inglês é o padrão**; há também a opção *Automático*, que segue o idioma
+  do Windows.
+- Qualquer JSON solto em `lang\` ao lado do `.exe` — ou em `%LOCALAPPDATA%\VramMonitor\lang` —
+  é carregado junto e pode acrescentar um idioma novo ou substituir um embutido (mesmo
+  `meta.code`) sem recompilar. Chaves que faltarem caem no inglês, e erro de sintaxe num
+  arquivo da comunidade é avisado na abertura em vez de falhar em silêncio.
+- O idioma escolhido também define a **formatação numérica**: sem isso a interface em
+  inglês mostraria `5,64 GB` com vírgula decimal numa máquina configurada em português.
+- Preferências persistidas em `%LOCALAPPDATA%\VramMonitor\settings.json` (idioma, intervalo
+  de amostragem, filtro "só com uso de GPU" e a ponte JSON).
+- Botão **♥ Doar** na barra de ferramentas e **♥ Apoiar o projeto** no menu da bandeja.
+- Leitor JSON próprio, escrito à mão: o app não passa a depender de `System.Web.Extensions`
+  nem de qualquer assembly que possa faltar na máquina do usuário.
+
+### Corrigido
+
+- A faixa após a última coluna das listas mostrava o cabeçalho branco do tema nativo no meio
+  da interface escura; agora a última coluna preenche a largura restante.
+- A coluna de VRAM dedicada cortava o próprio título quando a seta de ordenação aparecia.
+- O estado de elevação saiu da barra de ferramentas para o rodapé: na barra ele disputava
+  espaço com os botões e desaparecia em alguns idiomas.
+
+### Alterado
+
+- O nome do produto passou a ser **VRAM Monitor** (marca, não traduzida); o subtítulo da
+  janela é que muda de idioma.
+- O layout da barra de ferramentas é calculado a partir das larguras reais dos textos, em vez
+  de posições fixas — necessário porque cada idioma tem rótulos de tamanho diferente.
+
 ## [1.0.0] — 2026-07-30
 
 Primeira versão pública.

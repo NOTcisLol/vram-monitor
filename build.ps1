@@ -27,6 +27,17 @@ $refs = @(
     '/r:System.Management.dll'
 )
 
+# Idiomas embutidos: o download continua sendo um arquivo único. Arquivos soltos em
+# lang\ ao lado do .exe ainda são lidos em tempo de execução e sobrepõem os embutidos.
+$langDir = Join-Path $root 'lang'
+$resources = @()
+if (Test-Path $langDir) {
+    foreach ($f in Get-ChildItem $langDir -Filter *.json) {
+        $resources += "/resource:$($f.FullName),VramMonitor.lang.$($f.Name)"
+    }
+    Write-Host "idiomas embutidos: $((Get-ChildItem $langDir -Filter *.json).Count)" -ForegroundColor DarkGray
+}
+
 $args = @(
     '/nologo',
     '/target:winexe',
@@ -36,7 +47,7 @@ $args = @(
     '/langversion:5',
     "/out:$out",
     "/win32manifest:$manifest"
-) + $refs + $sources
+) + $refs + $resources + $sources
 
 Write-Host "Compilando -> $out" -ForegroundColor Cyan
 & $csc $args

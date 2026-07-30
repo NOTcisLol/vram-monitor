@@ -49,9 +49,22 @@ namespace VramMonitor
         private Button _btnElevate;
         private Button _btnHelp;
         private Button _btnDonate;
-        private Label _lblAdmin;
+        private Button _btnLang;
+        private Label _lblAdapter;
+        private Label _lblFilter;
+        private Label _lblInterval;
         private ContextMenuStrip _menu;
         private ToolStripMenuItem _miKill;
+        private ToolStripMenuItem _miCopyCmd;
+        private ToolStripMenuItem _miCopyPid;
+        private ToolStripMenuItem _miOpenLocation;
+        private ToolStripMenuItem _miCopyPath;
+        private ToolStripMenuItem _miTrayOpen;
+        private ToolStripMenuItem _miTrayCopyJson;
+        private ToolStripMenuItem _miTrayDonate;
+        private ToolStripMenuItem _miTrayExit;
+        private ContextMenuStrip _langMenu;
+        private readonly Settings _settings = Settings.Load();
 
         private NotifyIcon _tray;
         private ContextMenuStrip _trayMenu;
@@ -73,6 +86,7 @@ namespace VramMonitor
         private bool _mouseOverList;
         private bool _orderFrozen;
         private bool _autoSelected;
+        private bool _adapterComboDirty;
         private bool _exportJson = true;
         private string _jsonPath = SnapshotJson.DefaultPath;
         private int _sortColumn = 2;
@@ -86,12 +100,15 @@ namespace VramMonitor
 
         public MainForm()
         {
+            // Idioma antes de qualquer texto: sem preferência salva, o padrão é inglês.
+            I18n.Init(I18n.Resolve(_settings.Language));
+            _exportJson = _settings.ExportJson;
+
             _fSmall = new Font("Segoe UI", 8.25f);
             _fBold = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
             _fMono = new Font("Consolas", 8.5f);
             BuildUi();
 
-            _timer.Interval = 1000;
             _timer.Tick += delegate(object s, EventArgs e) { Refresh_(); };
             _timer.Start();
             Refresh_();
@@ -100,9 +117,8 @@ namespace VramMonitor
         // ------------------------------------------------------------------- UI
         private void BuildUi()
         {
-            Text = AppInfo.NameWithVersion + " — memória de GPU por processo";
-            ClientSize = new Size(Dpi.S(1300), Dpi.S(820));
-            MinimumSize = new Size(Dpi.S(1040), Dpi.S(640));
+            ClientSize = new Size(Dpi.S(1360), Dpi.S(830));
+            MinimumSize = new Size(Dpi.S(1060), Dpi.S(640));
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = UiTheme.Bg;
             ForeColor = UiTheme.Text;
@@ -110,6 +126,8 @@ namespace VramMonitor
             KeyPreview = true;
 
             // ---------------- barra de ferramentas
+            // Só criação aqui: as posições saem de LayoutToolbar(), porque a largura dos
+            // rótulos muda com o idioma e um layout fixo em pixels quebraria ao trocar.
             // Os controles são adicionados ao form no fim de BuildUi: no WinForms o último
             // Controls.Add fica na borda externa e o primeiro recebe o espaço restante.
             _bar = new Panel();
@@ -117,18 +135,19 @@ namespace VramMonitor
             _bar.Height = Dpi.S(44);
             _bar.BackColor = UiTheme.HeaderBg;
 
-            int x = Dpi.S(10);
-            _bar.Controls.Add(MakeLabel("Adaptador", ref x));
-            _cbAdapter = MakeCombo(x, Dpi.S(196));
-            _cbAdapter.Items.Add("Todos");
+            _lblAdapter = MakeLabel();
+            _bar.Controls.Add(_lblAdapter);
+
+            _cbAdapter = MakeCombo(Dpi.S(196));
+            _cbAdapter.Items.Add(I18n.T("toolbar.allAdapters"));
             _cbAdapter.SelectedIndex = 0;
             _cbAdapter.SelectedIndexChanged += delegate(object s, EventArgs e) { Rebuild(); };
             _bar.Controls.Add(_cbAdapter);
-            x += Dpi.S(206);
 
-            _bar.Controls.Add(MakeLabel("Filtro", ref x));
+            _lblFilter = MakeLabel();
+            _bar.Controls.Add(_lblFilter);
+
             _txtFilter = new TextBox();
-            _txtFilter.Location = new Point(x, Dpi.S(10));
             _txtFilter.Width = Dpi.S(168);
             _txtFilter.BackColor = UiTheme.PanelHi;
             _txtFilter.ForeColor = UiTheme.Text;
@@ -136,38 +155,41 @@ namespace VramMonitor
             _txtFilter.Font = _fSmall;
             _txtFilter.TextChanged += delegate(object s, EventArgs e) { Rebuild(); };
             _bar.Controls.Add(_txtFilter);
-            x += Dpi.S(178);
 
             _chkOnlyGpu = new CheckBox();
-            _chkOnlyGpu.Text = "Só com uso de GPU";
-            _chkOnlyGpu.Checked = true;
+            _chkOnlyGpu.Checked = _settings.OnlyGpu;
             _chkOnlyGpu.AutoSize = true;
             _chkOnlyGpu.ForeColor = UiTheme.TextDim;
             _chkOnlyGpu.FlatStyle = FlatStyle.Flat;
             _chkOnlyGpu.Font = _fSmall;
-            _chkOnlyGpu.Location = new Point(x, Dpi.S(13));
-            _chkOnlyGpu.CheckedChanged += delegate(object s, EventArgs e) { Rebuild(); };
+            _chkOnlyGpu.CheckedChanged += delegate(object s, EventArgs e)
+            {
+                _settings.OnlyGpu = _chkOnlyGpu.Checked;
+                _settings.Save();
+                Rebuild();
+            };
             _bar.Controls.Add(_chkOnlyGpu);
-            x += _chkOnlyGpu.PreferredSize.Width + Dpi.S(16);
 
-            _bar.Controls.Add(MakeLabel("Intervalo", ref x));
-            _cbInterval = MakeCombo(x, Dpi.S(72));
+            _lblInterval = MakeLabel();
+            _bar.Controls.Add(_lblInterval);
+
+            _cbInterval = MakeCombo(Dpi.S(76));
             _cbInterval.Items.AddRange(new object[] { "0,5 s", "1 s", "2 s", "5 s" });
-            _cbInterval.SelectedIndex = 1;
+            _cbInterval.SelectedIndex = IntervalIndex(_settings.IntervalMs);
+            _timer.Interval = IntervalMs[_cbInterval.SelectedIndex];
             _cbInterval.SelectedIndexChanged += delegate(object s, EventArgs e)
             {
-                int[] ms = new int[] { 500, 1000, 2000, 5000 };
-                _timer.Interval = ms[_cbInterval.SelectedIndex];
+                _timer.Interval = IntervalMs[_cbInterval.SelectedIndex];
+                _settings.IntervalMs = _timer.Interval;
+                _settings.Save();
             };
             _bar.Controls.Add(_cbInterval);
-            x += Dpi.S(82);
 
-            _btnPause = MakeButton("Pausar", x, Dpi.S(9), Dpi.S(76));
+            _btnPause = MakeButton("", 0, Dpi.S(9), Dpi.S(78));
             _btnPause.Click += delegate(object s, EventArgs e) { TogglePause(); };
             _bar.Controls.Add(_btnPause);
-            x += Dpi.S(84);
 
-            _btnKill = MakeButton("Matar processo", x, Dpi.S(9), Dpi.S(146));
+            _btnKill = MakeButton("", 0, Dpi.S(9), Dpi.S(150));
             _btnKill.Enabled = false;
             _btnKill.Click += delegate(object s, EventArgs e) { KillSelected(); };
             _bar.Controls.Add(_btnKill);
@@ -176,29 +198,27 @@ namespace VramMonitor
             _btnHelp.Click += delegate(object s, EventArgs e) { ShowHelp(); };
             _bar.Controls.Add(_btnHelp);
 
-            _btnDonate = MakeButton("♥ Doar", 0, Dpi.S(9), Dpi.S(80));
+            _btnDonate = MakeButton("", 0, Dpi.S(9), Dpi.S(84));
             _btnDonate.ForeColor = UiTheme.Donate;
             _btnDonate.FlatAppearance.BorderColor = Color.FromArgb(90, UiTheme.Donate);
             _btnDonate.Click += delegate(object s, EventArgs e) { OpenDonate(); };
             _bar.Controls.Add(_btnDonate);
 
-            _lblAdmin = new Label();
-            _lblAdmin.AutoSize = true;
-            _lblAdmin.Font = _fSmall;
-            _lblAdmin.ForeColor = _elevated ? UiTheme.Ok : UiTheme.TextDim;
-            _lblAdmin.Text = _elevated ? "administrador" : "sem elevação";
-            _lblAdmin.Location = new Point(0, Dpi.S(14));
-            _bar.Controls.Add(_lblAdmin);
+            // Botão compacto com o código do idioma ("EN ▾") em vez de uma combo larga.
+            _btnLang = MakeButton("", 0, Dpi.S(9), Dpi.S(54));
+            _btnLang.Click += delegate(object s, EventArgs e) { ShowLanguageMenu(); };
+            _bar.Controls.Add(_btnLang);
+
 
             if (!_elevated)
             {
-                _btnElevate = MakeButton("Elevar", 0, Dpi.S(9), Dpi.S(76));
+                _btnElevate = MakeButton("", 0, Dpi.S(9), Dpi.S(78));
                 _btnElevate.ForeColor = UiTheme.Warn;
                 _btnElevate.Click += delegate(object s, EventArgs e) { RelaunchElevated(); };
                 _bar.Controls.Add(_btnElevate);
             }
 
-            _bar.Resize += delegate(object s, EventArgs e) { LayoutBarRight(); };
+            _bar.Resize += delegate(object s, EventArgs e) { LayoutToolbar(); };
 
             // ---------------- cartões de adaptador
             _header = new AdapterHeader();
@@ -221,12 +241,12 @@ namespace VramMonitor
             _segList = new DarkListView();
             _segList.Font = _fSmall;
             _segList.SmallImageList = MakeRowSizer(20);
-            _segList.Columns.Add("Adaptador", Dpi.S(180), HorizontalAlignment.Left);
-            _segList.Columns.Add("Seg", Dpi.S(42), HorizontalAlignment.Center);
-            _segList.Columns.Add("Residente na VRAM", Dpi.S(132), HorizontalAlignment.Right);
-            _segList.Columns.Add("Compartilhada", Dpi.S(110), HorizontalAlignment.Right);
-            _segList.Columns.Add("Dedic. comprometida", Dpi.S(138), HorizontalAlignment.Right);
-            _segList.Columns.Add("Total comprometido", Dpi.S(134), HorizontalAlignment.Right);
+            _segList.Columns.Add("", Dpi.S(180), HorizontalAlignment.Left);
+            _segList.Columns.Add("", Dpi.S(42), HorizontalAlignment.Center);
+            _segList.Columns.Add("", Dpi.S(132), HorizontalAlignment.Right);
+            _segList.Columns.Add("", Dpi.S(110), HorizontalAlignment.Right);
+            _segList.Columns.Add("", Dpi.S(138), HorizontalAlignment.Right);
+            _segList.Columns.Add("", Dpi.S(134), HorizontalAlignment.Right);
             _segList.DrawColumnHeader += HeaderDraw;
             _segList.DrawItem += RowBgDraw;
             _segList.DrawSubItem += SegSubDraw;
@@ -238,17 +258,17 @@ namespace VramMonitor
             _list.Font = _fSmall;
             _list.Dock = DockStyle.Fill;
             _list.SmallImageList = MakeRowSizer(22);
-            _list.Columns.Add("PID", Dpi.S(60), HorizontalAlignment.Right);
-            _list.Columns.Add("Processo", Dpi.S(166), HorizontalAlignment.Left);
-            _list.Columns.Add("VRAM dedicada", Dpi.S(118), HorizontalAlignment.Right);
-            _list.Columns.Add("Compartilhada", Dpi.S(110), HorizontalAlignment.Right);
-            _list.Columns.Add("Total GPU", Dpi.S(100), HorizontalAlignment.Right);
-            _list.Columns.Add("Comprometido", Dpi.S(112), HorizontalAlignment.Right);
-            _list.Columns.Add("GPU", Dpi.S(62), HorizontalAlignment.Right);
-            _list.Columns.Add("Motor", Dpi.S(92), HorizontalAlignment.Left);
-            _list.Columns.Add("Tipo", Dpi.S(96), HorizontalAlignment.Left);
-            _list.Columns.Add("Usuário", Dpi.S(110), HorizontalAlignment.Left);
-            _list.Columns.Add("Serviços / descrição", Dpi.S(250), HorizontalAlignment.Left);
+            _list.Columns.Add("", Dpi.S(60), HorizontalAlignment.Right);
+            _list.Columns.Add("", Dpi.S(166), HorizontalAlignment.Left);
+            _list.Columns.Add("", Dpi.S(136), HorizontalAlignment.Right);
+            _list.Columns.Add("", Dpi.S(110), HorizontalAlignment.Right);
+            _list.Columns.Add("", Dpi.S(100), HorizontalAlignment.Right);
+            _list.Columns.Add("", Dpi.S(112), HorizontalAlignment.Right);
+            _list.Columns.Add("", Dpi.S(62), HorizontalAlignment.Right);
+            _list.Columns.Add("", Dpi.S(92), HorizontalAlignment.Left);
+            _list.Columns.Add("", Dpi.S(96), HorizontalAlignment.Left);
+            _list.Columns.Add("", Dpi.S(110), HorizontalAlignment.Left);
+            _list.Columns.Add("", Dpi.S(250), HorizontalAlignment.Left);
             _list.DrawColumnHeader += HeaderDraw;
             _list.DrawItem += RowBgDraw;
             _list.DrawSubItem += MainSubDraw;
@@ -266,6 +286,8 @@ namespace VramMonitor
             _list.MouseDoubleClick += delegate(object s, MouseEventArgs e) { KillSelected(); };
             // Enquanto o ponteiro está sobre a lista (ou ela está rolada), a ordem congela:
             // sem reordenar, a posição do scroll e a linha sob o cursor param de fugir.
+            _list.Resize += delegate(object s, EventArgs e) { StretchLastColumn(_list); };
+            _segList.Resize += delegate(object s, EventArgs e) { StretchLastColumn(_segList); };
             _list.MouseEnter += delegate(object s, EventArgs e) { _mouseOverList = true; };
             _list.MouseLeave += delegate(object s, EventArgs e) { _mouseOverList = false; };
 
@@ -293,20 +315,26 @@ namespace VramMonitor
                 }
             };
 
+            ApplyTexts();
+
             Shown += delegate(object s, EventArgs e)
             {
-                try
-                {
-                    SendMessage(_txtFilter.Handle, EM_SETCUEBANNER, new IntPtr(1),
-                                "nome, PID, serviço...");
-                }
-                catch (Exception) { }
-                LayoutBarRight();
+                ApplyTexts();   // agora com handle criado: o cue banner do filtro precisa dele
                 LayoutDetail();
+                StretchLastColumn(_list);
+                StretchLastColumn(_segList);
                 if (WindowState == FormWindowState.Minimized) HideToTray(false);
+                // Arquivo de idioma da comunidade com erro não pode falhar em silêncio.
+                if (I18n.LoadErrors.Count > 0)
+                {
+                    MessageBox.Show(this,
+                        I18n.F("dialog.langErrors", string.Join("\r\n", I18n.LoadErrors.ToArray())),
+                        I18n.T("dialog.langErrorsTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    I18n.LoadErrors.Clear();
+                }
                 if (!_sampler.Ready)
-                    MessageBox.Show(this, _sampler.InitError ?? "Contadores de GPU indisponíveis.",
-                                    "Monitor de VRAM", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, _sampler.InitError ?? I18n.T("dialog.countersUnavailable"),
+                                    AppInfo.Name, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             };
         }
 
@@ -318,34 +346,105 @@ namespace VramMonitor
             return il;
         }
 
-        private void LayoutBarRight()
+        private static readonly int[] IntervalMs = new int[] { 500, 1000, 2000, 5000 };
+
+        private static int IntervalIndex(int ms)
         {
+            for (int i = 0; i < IntervalMs.Length; i++)
+                if (IntervalMs[i] == ms) return i;
+            return 1;
+        }
+
+        /// <summary>
+        /// Posiciona a barra inteira a partir das larguras atuais. Chamado ao construir, ao
+        /// redimensionar e ao trocar de idioma — os rótulos mudam de tamanho em cada língua.
+        /// </summary>
+        private void LayoutToolbar()
+        {
+            if (_bar == null || _lblAdapter == null || _btnHelp == null) return;
+
+            int gap = Dpi.S(8);
+            int lblY = Dpi.S(14);
+            int ctlY = Dpi.S(10);
+            int btnY = Dpi.S(9);
+            int x = Dpi.S(10);
+
+            x = PlaceLabel(_lblAdapter, x, lblY) + Dpi.S(6);
+            _cbAdapter.Location = new Point(x, ctlY);
+            x += _cbAdapter.Width + Dpi.S(12);
+
+            x = PlaceLabel(_lblFilter, x, lblY) + Dpi.S(6);
+            _txtFilter.Location = new Point(x, ctlY);
+            x += _txtFilter.Width + Dpi.S(12);
+
+            _chkOnlyGpu.Location = new Point(x, Dpi.S(13));
+            x += _chkOnlyGpu.PreferredSize.Width + Dpi.S(14);
+
+            x = PlaceLabel(_lblInterval, x, lblY) + Dpi.S(6);
+            _cbInterval.Location = new Point(x, ctlY);
+            x += _cbInterval.Width + Dpi.S(12);
+
+            _btnPause.Location = new Point(x, btnY);
+            x += _btnPause.Width + gap;
+            _btnKill.Location = new Point(x, btnY);
+            x += _btnKill.Width + gap;
+            int leftEnd = x;
+
             int right = _bar.ClientSize.Width - Dpi.S(12);
             _btnHelp.Left = right - _btnHelp.Width;
-            right -= _btnHelp.Width + Dpi.S(8);
+            _btnHelp.Top = btnY;
+            right -= _btnHelp.Width + gap;
+
+            _btnLang.Left = right - _btnLang.Width;
+            _btnLang.Top = btnY;
+            right -= _btnLang.Width + gap;
+
             _btnDonate.Left = right - _btnDonate.Width;
+            _btnDonate.Top = btnY;
             right -= _btnDonate.Width + Dpi.S(10);
+
             if (_btnElevate != null)
             {
                 _btnElevate.Left = right - _btnElevate.Width;
-                right -= _btnElevate.Width + Dpi.S(8);
+                _btnElevate.Top = btnY;
+                right -= _btnElevate.Width + gap;
             }
-            _lblAdmin.Left = right - _lblAdmin.PreferredWidth;
+
+            // Sobrou espaço para os botões da direita? Se não, some com "Matar" primeiro:
+            // é o único da esquerda que tem rótulo variável e longo em alguns idiomas.
+            _btnKill.Visible = leftEnd <= right;
         }
 
-        private Label MakeLabel(string text, ref int x)
+        /// <summary>
+        /// Faz a última coluna preencher a largura restante. Sem isso, a faixa depois da
+        /// última coluna fica com o cabeçalho branco do tema nativo no meio da UI escura.
+        /// </summary>
+        private static void StretchLastColumn(ListView lv)
+        {
+            if (lv == null || lv.Columns.Count == 0 || !lv.IsHandleCreated) return;
+            int used = 0;
+            for (int i = 0; i < lv.Columns.Count - 1; i++) used += lv.Columns[i].Width;
+            int avail = lv.ClientSize.Width - used - 1;
+            int min = Dpi.S(120);
+            lv.Columns[lv.Columns.Count - 1].Width = avail > min ? avail : min;
+        }
+
+        private static int PlaceLabel(Label l, int x, int y)
+        {
+            l.Location = new Point(x, y);
+            return x + l.PreferredWidth;
+        }
+
+        private Label MakeLabel()
         {
             Label l = new Label();
-            l.Text = text;
             l.AutoSize = true;
             l.ForeColor = UiTheme.TextDim;
             l.Font = _fSmall;
-            l.Location = new Point(x, Dpi.S(14));
-            x += l.PreferredWidth + Dpi.S(6);
             return l;
         }
 
-        private ComboBox MakeCombo(int x, int w)
+        private ComboBox MakeCombo(int w)
         {
             ComboBox c = new ComboBox();
             c.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -353,7 +452,6 @@ namespace VramMonitor
             c.BackColor = UiTheme.PanelHi;
             c.ForeColor = UiTheme.Text;
             c.Font = _fSmall;
-            c.Location = new Point(x, Dpi.S(10));
             c.Width = w;
             return c;
         }
@@ -381,48 +479,182 @@ namespace VramMonitor
             _menu.ForeColor = UiTheme.Text;
             _menu.Renderer = new ToolStripProfessionalRenderer(new DarkColorTable());
 
-            _miKill = new ToolStripMenuItem("Matar processo", null,
+            _miKill = new ToolStripMenuItem("", null,
                 delegate(object s, EventArgs e) { KillSelected(); });
             _miKill.ShortcutKeyDisplayString = "Del";
             _menu.Items.Add(_miKill);
 
-            ToolStripMenuItem copyCmd = new ToolStripMenuItem("Copiar comando taskkill", null,
+            _miCopyCmd = new ToolStripMenuItem("", null,
                 delegate(object s, EventArgs e) { CopyTaskkill(); });
-            copyCmd.ShortcutKeyDisplayString = "Ctrl+C";
-            _menu.Items.Add(copyCmd);
+            _miCopyCmd.ShortcutKeyDisplayString = "Ctrl+C";
+            _menu.Items.Add(_miCopyCmd);
 
-            _menu.Items.Add(new ToolStripMenuItem("Copiar PID", null, delegate(object s, EventArgs e)
+            _miCopyPid = new ToolStripMenuItem("", null, delegate(object s, EventArgs e)
             {
                 if (_selected != null)
                     TrySetClipboard(_selected.Gp.Pid.ToString(CultureInfo.InvariantCulture));
-            }));
+            });
+            _menu.Items.Add(_miCopyPid);
 
             _menu.Items.Add(new ToolStripSeparator());
 
-            _menu.Items.Add(new ToolStripMenuItem("Abrir local do arquivo", null,
-                delegate(object s, EventArgs e)
+            _miOpenLocation = new ToolStripMenuItem("", null, delegate(object s, EventArgs e)
             {
                 if (_selected != null && _selected.Pi != null && _selected.Pi.ExePath.Length > 0)
                 {
                     try { Process.Start("explorer.exe", "/select,\"" + _selected.Pi.ExePath + "\""); }
                     catch (Exception) { }
                 }
-            }));
+            });
+            _menu.Items.Add(_miOpenLocation);
 
-            _menu.Items.Add(new ToolStripMenuItem("Copiar caminho completo", null,
-                delegate(object s, EventArgs e)
+            _miCopyPath = new ToolStripMenuItem("", null, delegate(object s, EventArgs e)
             {
                 if (_selected != null && _selected.Pi != null)
                     TrySetClipboard(_selected.Pi.ExePath);
-            }));
+            });
+            _menu.Items.Add(_miCopyPath);
 
             _menu.Opening += delegate(object s, System.ComponentModel.CancelEventArgs e)
             {
                 if (_selected == null) { e.Cancel = true; return; }
                 bool blocked = _selected.Pi != null && _selected.Pi.Risk == RiskLevel.Critical;
-                _miKill.Text = (blocked ? "Processo crítico — bloqueado (PID " : "Matar (kill) PID ")
-                               + _selected.Gp.Pid + (blocked ? ")" : "");
+                _miKill.Text = I18n.F(blocked ? "menu.killBlocked" : "menu.killPid", _selected.Gp.Pid);
             };
+        }
+
+        // ---------------------------------------------------------------- idiomas
+        /// <summary>
+        /// Reaplica todo o texto da interface. Chamado ao construir e a cada troca de idioma;
+        /// os painéis desenhados à mão leem o i18n no próprio Paint, então só precisam invalidar.
+        /// </summary>
+        private void ApplyTexts()
+        {
+            Text = AppInfo.NameWithVersion + " — " + I18n.T("app.subtitle");
+
+            _lblAdapter.Text = I18n.T("toolbar.adapter");
+            _lblFilter.Text = I18n.T("toolbar.filter");
+            _lblInterval.Text = I18n.T("toolbar.interval");
+            _chkOnlyGpu.Text = I18n.T("toolbar.onlyGpu");
+            _btnPause.Text = I18n.T(_paused ? "toolbar.resume" : "toolbar.pause");
+            _btnDonate.Text = I18n.T("toolbar.donate");
+            _btnLang.Text = LangButtonText();
+            if (_btnElevate != null) _btnElevate.Text = I18n.T("toolbar.elevate");
+            UpdateKillButton();
+
+            string[] cols = new string[] {
+                "col.pid", "col.process", "col.dedicated", "col.shared", "col.totalGpu",
+                "col.committed", "col.gpu", "col.engine", "col.type", "col.user", "col.detail" };
+            for (int i = 0; i < cols.Length && i < _list.Columns.Count; i++)
+                _list.Columns[i].Text = I18n.T(cols[i]);
+
+            string[] segs = new string[] {
+                "seg.adapter", "seg.segment", "seg.resident", "seg.shared",
+                "seg.dedicatedCommitted", "seg.totalCommitted" };
+            for (int i = 0; i < segs.Length && i < _segList.Columns.Count; i++)
+                _segList.Columns[i].Text = I18n.T(segs[i]);
+
+            _miKill.Text = I18n.T("menu.kill");
+            _miCopyCmd.Text = I18n.T("menu.copyTaskkill");
+            _miCopyPid.Text = I18n.T("menu.copyPid");
+            _miOpenLocation.Text = I18n.T("menu.openLocation");
+            _miCopyPath.Text = I18n.T("menu.copyPath");
+
+            if (_miTrayOpen != null)
+            {
+                _miTrayOpen.Text = I18n.T("tray.open");
+                _miTrayPause.Text = I18n.T(_paused ? "toolbar.resume" : "toolbar.pause");
+                _miTrayJson.Text = I18n.T("tray.exportJson");
+                _miTrayCopyJson.Text = I18n.T("tray.copyJsonPath");
+                _miTrayDonate.Text = I18n.T("tray.donate");
+                _miTrayExit.Text = I18n.T("tray.exit");
+            }
+
+            if (_txtFilter.IsHandleCreated)
+            {
+                try
+                {
+                    SendMessage(_txtFilter.Handle, EM_SETCUEBANNER, new IntPtr(1),
+                                I18n.T("toolbar.filterHint"));
+                }
+                catch (Exception) { }
+            }
+
+            _adapterComboDirty = true;
+            LayoutToolbar();
+            if (_snap != null) Rebuild();      // RiskText e o combo de adaptadores mudam de idioma
+            UpdateTray();
+            _header.Invalidate();
+            _detail.Invalidate();
+            _status.Invalidate();
+        }
+
+        private static string LangButtonText()
+        {
+            string code = I18n.CurrentCode;
+            string two = code.Length >= 2 ? code.Substring(0, 2).ToUpperInvariant() : code.ToUpperInvariant();
+            return two + " ▾";
+        }
+
+        private void ShowLanguageMenu()
+        {
+            if (_langMenu == null)
+            {
+                _langMenu = new ContextMenuStrip();
+                _langMenu.BackColor = UiTheme.Panel;
+                _langMenu.ForeColor = UiTheme.Text;
+                _langMenu.Renderer = new ToolStripProfessionalRenderer(new DarkColorTable());
+            }
+
+            _langMenu.Items.Clear();
+
+            ToolStripMenuItem auto = new ToolStripMenuItem(I18n.T("toolbar.languageAuto"), null,
+                delegate(object s, EventArgs e) { ChangeLanguage(I18n.AutoValue); });
+            auto.Checked = string.Equals(_settings.Language, I18n.AutoValue,
+                                         StringComparison.OrdinalIgnoreCase);
+            _langMenu.Items.Add(auto);
+            _langMenu.Items.Add(new ToolStripSeparator());
+
+            List<Language> langs = I18n.Available;
+            for (int i = 0; i < langs.Count; i++)
+            {
+                Language lang = langs[i];
+                string label = lang.Label + "   (" + lang.Code + ")";
+                if (lang.IsExternal) label += "  •";      // veio de arquivo solto
+                ToolStripMenuItem item = new ToolStripMenuItem(label, null,
+                    delegate(object s, EventArgs e) { ChangeLanguage(lang.Code); });
+                item.Checked = string.Equals(lang.Code, I18n.CurrentCode, StringComparison.OrdinalIgnoreCase);
+                _langMenu.Items.Add(item);
+            }
+
+            _langMenu.Show(_btnLang, new Point(0, _btnLang.Height));
+        }
+
+        private void ChangeLanguage(string code)
+        {
+            if (!I18n.Select(I18n.Resolve(code)) && !I18n.Select(I18n.DefaultCode)) return;
+
+            _settings.Language = code;   // "auto" = seguir o Windows
+            _settings.Save();
+            ApplyTexts();
+            Flash(I18n.F("status.flashLanguage", I18n.Current.Label));
+        }
+
+        private void UpdateKillButton()
+        {
+            if (_selected == null)
+            {
+                _btnKill.Enabled = false;
+                _btnKill.Text = I18n.T("toolbar.kill");
+                _btnKill.BackColor = UiTheme.PanelHi;
+                _btnKill.ForeColor = UiTheme.Text;
+                return;
+            }
+            bool blocked = _selected.Pi != null && _selected.Pi.Risk == RiskLevel.Critical;
+            _btnKill.Enabled = true;
+            _btnKill.Text = I18n.F(blocked ? "toolbar.blockedPid" : "toolbar.killPid", _selected.Gp.Pid);
+            _btnKill.BackColor = blocked ? UiTheme.PanelHi : UiTheme.Danger;
+            _btnKill.ForeColor = blocked ? UiTheme.TextDim : Color.White;
         }
 
         // ---------------------------------------------------------------- bandeja
@@ -433,59 +665,63 @@ namespace VramMonitor
             _trayMenu.ForeColor = UiTheme.Text;
             _trayMenu.Renderer = new ToolStripProfessionalRenderer(new DarkColorTable());
 
-            ToolStripMenuItem open = new ToolStripMenuItem("Abrir monitor", null,
+            _miTrayOpen = new ToolStripMenuItem("", null,
                 delegate(object s, EventArgs e) { ShowFromTray(); });
-            open.Font = new Font(_trayMenu.Font, FontStyle.Bold);
-            _trayMenu.Items.Add(open);
+            _miTrayOpen.Font = new Font(_trayMenu.Font, FontStyle.Bold);
+            _trayMenu.Items.Add(_miTrayOpen);
             _trayMenu.Items.Add(new ToolStripSeparator());
 
-            _miTrayDed = new ToolStripMenuItem("Dedicada —");
+            _miTrayDed = new ToolStripMenuItem("");
             _miTrayDed.Enabled = false;
             _trayMenu.Items.Add(_miTrayDed);
 
-            _miTrayShr = new ToolStripMenuItem("Compartilhada —");
+            _miTrayShr = new ToolStripMenuItem("");
             _miTrayShr.Enabled = false;
             _trayMenu.Items.Add(_miTrayShr);
 
-            _miTrayTop = new ToolStripMenuItem("Maior consumidor —");
+            _miTrayTop = new ToolStripMenuItem("");
             _miTrayTop.Enabled = false;
             _trayMenu.Items.Add(_miTrayTop);
 
             _trayMenu.Items.Add(new ToolStripSeparator());
 
-            _miTrayPause = new ToolStripMenuItem("Pausar", null,
+            _miTrayPause = new ToolStripMenuItem("", null,
                 delegate(object s, EventArgs e) { TogglePause(); });
             _trayMenu.Items.Add(_miTrayPause);
 
-            _miTrayJson = new ToolStripMenuItem("Exportar JSON (ponte headless)", null,
+            _miTrayJson = new ToolStripMenuItem("", null,
                 delegate(object s, EventArgs e)
                 {
                     _exportJson = !_exportJson;
                     _miTrayJson.Checked = _exportJson;
-                    Flash(_exportJson ? "ponte JSON ativa" : "ponte JSON desativada");
+                    _settings.ExportJson = _exportJson;
+                    _settings.Save();
+                    Flash(I18n.T(_exportJson ? "status.flashJsonOn" : "status.flashJsonOff"));
                 });
             _miTrayJson.Checked = _exportJson;
             _trayMenu.Items.Add(_miTrayJson);
 
-            _trayMenu.Items.Add(new ToolStripMenuItem("Copiar caminho do JSON", null,
+            _miTrayCopyJson = new ToolStripMenuItem("", null,
                 delegate(object s, EventArgs e)
                 {
                     TrySetClipboard(_jsonPath);
-                    Flash("caminho copiado");
-                }));
+                    Flash(I18n.T("status.flashPathCopied"));
+                });
+            _trayMenu.Items.Add(_miTrayCopyJson);
 
             _trayMenu.Items.Add(new ToolStripSeparator());
 
-            ToolStripMenuItem donate = new ToolStripMenuItem("♥ Apoiar o projeto", null,
+            _miTrayDonate = new ToolStripMenuItem("", null,
                 delegate(object s, EventArgs e) { OpenDonate(); });
-            donate.ForeColor = UiTheme.Donate;
-            _trayMenu.Items.Add(donate);
+            _miTrayDonate.ForeColor = UiTheme.Donate;
+            _trayMenu.Items.Add(_miTrayDonate);
 
-            _trayMenu.Items.Add(new ToolStripMenuItem("Sair", null, delegate(object s, EventArgs e)
+            _miTrayExit = new ToolStripMenuItem("", null, delegate(object s, EventArgs e)
             {
                 _reallyExit = true;
                 Close();
-            }));
+            });
+            _trayMenu.Items.Add(_miTrayExit);
 
             _tray = new NotifyIcon();
             _tray.Text = "Monitor de VRAM";
@@ -505,9 +741,8 @@ namespace VramMonitor
                 _balloonShown = true;
                 try
                 {
-                    _tray.BalloonTipTitle = "Monitor de VRAM";
-                    _tray.BalloonTipText = "Continuo monitorando aqui na área de notificações. " +
-                                           "Duplo-clique para reabrir; use Sair no menu para encerrar.";
+                    _tray.BalloonTipTitle = AppInfo.Name;
+                    _tray.BalloonTipText = I18n.T("tray.balloonText");
                     _tray.ShowBalloonTip(4000);
                 }
                 catch (Exception) { }
@@ -576,16 +811,15 @@ namespace VramMonitor
 
             string tip = "VRAM " + Fmt.Gb(ded) + "/" + Fmt.Gb(dedTotal) + " GB (" + pct + "%)";
             if (topVal > 0) tip += "\n" + top;
-            if (_paused) tip += "\n(pausado)";
+            if (_paused) tip += "\n" + I18n.T("tray.paused");
             if (tip.Length > 60) tip = tip.Substring(0, 60);
             try { _tray.Text = tip; }
             catch (Exception) { }
 
-            _miTrayDed.Text = "Dedicada   " + Fmt.Bytes(ded) + " / " + Fmt.Gb(dedTotal) +
-                              " GB   (" + pct + "%)";
-            _miTrayShr.Text = "Compartilhada   " + Fmt.Bytes(shr) + " / " + Fmt.Gb(shrTotal) + " GB";
-            _miTrayTop.Text = "Maior consumidor   " + top;
-            _miTrayPause.Text = _paused ? "Retomar" : "Pausar";
+            _miTrayDed.Text = I18n.F("tray.dedicated", Fmt.Bytes(ded), Fmt.Gb(dedTotal), pct);
+            _miTrayShr.Text = I18n.F("tray.shared", Fmt.Bytes(shr), Fmt.Gb(shrTotal));
+            _miTrayTop.Text = I18n.F("tray.top", top);
+            _miTrayPause.Text = I18n.T(_paused ? "toolbar.resume" : "toolbar.pause");
         }
 
         private void ExportJson()
@@ -633,7 +867,7 @@ namespace VramMonitor
         private void SyncAdapterCombo()
         {
             List<string> want = new List<string>();
-            want.Add("Todos");
+            want.Add(I18n.T("toolbar.allAdapters"));
             for (int i = 0; i < _snap.Adapters.Count; i++)
             {
                 GpuAdapter a = _snap.Adapters[i];
@@ -641,7 +875,7 @@ namespace VramMonitor
                     want.Add(a.Label);
             }
 
-            bool same = want.Count == _cbAdapter.Items.Count;
+            bool same = !_adapterComboDirty && want.Count == _cbAdapter.Items.Count;
             if (same)
             {
                 for (int i = 0; i < want.Count; i++)
@@ -654,6 +888,7 @@ namespace VramMonitor
                 }
             }
             if (same) return;
+            _adapterComboDirty = false;
 
             string cur = Convert.ToString(_cbAdapter.SelectedItem);
             _cbAdapter.BeginUpdate();
@@ -844,17 +1079,27 @@ namespace VramMonitor
             // Nada de Items.Clear() -> o scroll e a seleção ficam exatamente onde estavam.
             if (SameSequence())
             {
-                for (int i = 0; i < _rows.Count; i++)
+                // BeginUpdate/EndUpdate é obrigatório: alterar SubItems[k].Text invalida só o
+                // retângulo daquela célula, e com OwnerDraw isso deixa a linha meio desenhada.
+                _list.BeginUpdate();
+                try
                 {
-                    ListViewItem it = _list.Items[i];
-                    string[] cells = Cells(_rows[i]);
-                    for (int k = 0; k < cells.Length && k < it.SubItems.Count; k++)
+                    for (int i = 0; i < _rows.Count; i++)
                     {
-                        if (!string.Equals(it.SubItems[k].Text, cells[k], StringComparison.Ordinal))
-                            it.SubItems[k].Text = cells[k];
+                        ListViewItem it = _list.Items[i];
+                        string[] cells = Cells(_rows[i]);
+                        for (int k = 0; k < cells.Length && k < it.SubItems.Count; k++)
+                        {
+                            if (!string.Equals(it.SubItems[k].Text, cells[k], StringComparison.Ordinal))
+                                it.SubItems[k].Text = cells[k];
+                        }
+                        it.Tag = _rows[i];
+                        if (_rows[i].Gp.Pid == selPid) _selected = _rows[i];
                     }
-                    it.Tag = _rows[i];
-                    if (_rows[i].Gp.Pid == selPid) _selected = _rows[i];
+                }
+                finally
+                {
+                    _list.EndUpdate();
                 }
                 if (_selected != null)
                 {
@@ -923,10 +1168,7 @@ namespace VramMonitor
             if (selPid >= 0 && !found)
             {
                 _selected = null;
-                _btnKill.Enabled = false;
-                _btnKill.Text = "Matar processo";
-                _btnKill.BackColor = UiTheme.PanelHi;
-                _btnKill.ForeColor = UiTheme.Text;
+                UpdateKillButton();
                 _segList.Items.Clear();
                 _detail.Invalidate();
             }
@@ -949,20 +1191,13 @@ namespace VramMonitor
             if (_list.SelectedIndices.Count == 0)
             {
                 _selected = null;
-                _btnKill.Enabled = false;
-                _btnKill.Text = "Matar processo";
-                _btnKill.BackColor = UiTheme.PanelHi;
-                _btnKill.ForeColor = UiTheme.Text;
+                UpdateKillButton();
                 _segList.Items.Clear();
                 _detail.Invalidate();
                 return;
             }
             _selected = (Row)_list.Items[_list.SelectedIndices[0]].Tag;
-            bool blocked = _selected.Pi != null && _selected.Pi.Risk == RiskLevel.Critical;
-            _btnKill.Enabled = true;
-            _btnKill.Text = (blocked ? "Bloqueado: PID " : "Matar PID ") + _selected.Gp.Pid;
-            _btnKill.BackColor = blocked ? UiTheme.PanelHi : UiTheme.Danger;
-            _btnKill.ForeColor = blocked ? UiTheme.TextDim : Color.White;
+            UpdateKillButton();
             FillSegments();
             _detail.Invalidate();
         }
@@ -1188,14 +1423,13 @@ namespace VramMonitor
             int x = Dpi.S(14);
 
             using (SolidBrush br = new SolidBrush(UiTheme.TextDim))
-                g.DrawString("Blocos alocados por segmento do adaptador", _fSmall, br,
+                g.DrawString(I18n.T("seg.title"), _fSmall, br,
                              infoW, Dpi.S(9));
 
             if (_selected == null)
             {
                 using (SolidBrush br = new SolidBrush(UiTheme.TextDim))
-                    g.DrawString("Selecione um processo para ver os detalhes e os blocos alocados.",
-                                 _fSmall, br, x, Dpi.S(12));
+                    g.DrawString(I18n.T("detail.selectHint"), _fSmall, br, x, Dpi.S(12));
                 return;
             }
 
@@ -1208,7 +1442,7 @@ namespace VramMonitor
                 g.DrawString(nm, _fBold, br, x, y);
             SizeF nz = g.MeasureString(nm, _fBold);
             using (SolidBrush br = new SolidBrush(UiTheme.TextDim))
-                g.DrawString("PID " + r.Gp.Pid, _fSmall, br, x + nz.Width, y + Dpi.S(2));
+                g.DrawString(I18n.F("kill.pid", r.Gp.Pid), _fSmall, br, x + nz.Width, y + Dpi.S(2));
 
             if (pi != null)
             {
@@ -1226,25 +1460,27 @@ namespace VramMonitor
             using (SolidBrush lb = new SolidBrush(UiTheme.TextDim))
             using (SolidBrush vb = new SolidBrush(UiTheme.Text))
             {
-                y = Line(g, lb, vb, x, y, infoW, "Caminho",
-                         pi != null && pi.ExePath.Length > 0 ? pi.ExePath : "(sem acesso)");
-                y = Line(g, lb, vb, x, y, infoW, "Usuário",
-                         pi != null && pi.User.Length > 0 ? pi.User : "(desconhecido)");
-                y = Line(g, lb, vb, x, y, infoW, "Sessão / elevação",
+                y = Line(g, lb, vb, x, y, infoW, I18n.T("detail.path"),
+                         pi != null && pi.ExePath.Length > 0 ? pi.ExePath : I18n.T("detail.noAccess"));
+                y = Line(g, lb, vb, x, y, infoW, I18n.T("detail.user"),
+                         pi != null && pi.User.Length > 0 ? pi.User : I18n.T("detail.unknown"));
+                y = Line(g, lb, vb, x, y, infoW, I18n.T("detail.sessionElevation"),
                          (pi != null ? pi.SessionId.ToString(CultureInfo.InvariantCulture) : "?") +
                          "  ·  " + (pi == null ? "?" : (pi.Elevated.HasValue
-                            ? (pi.Elevated.Value ? "elevado" : "não elevado") : "sem acesso")));
+                            ? I18n.T(pi.Elevated.Value ? "detail.elevatedYes" : "detail.elevatedNo")
+                            : I18n.T("detail.elevationUnknown"))));
                 if (pi != null && pi.Services.Count > 0)
-                    y = Line(g, lb, vb, x, y, infoW, "Serviços", pi.ServicesText);
+                    y = Line(g, lb, vb, x, y, infoW, I18n.T("detail.services"), pi.ServicesText);
 
-                y = Line(g, lb, vb, x, y, infoW, "Memória da GPU",
-                         Fmt.Bytes(r.Local) + " dedicada  +  " + Fmt.Bytes(r.NonLocal) +
-                         " compartilhada  =  " + Fmt.Bytes(r.Total));
-                y = Line(g, lb, vb, x, y, infoW, "Comprometido",
-                         Fmt.Bytes(r.Committed) + "   (dedicada " + Fmt.Bytes(r.Dedicated) + ")");
+                y = Line(g, lb, vb, x, y, infoW, I18n.T("detail.gpuMemory"),
+                         I18n.F("detail.gpuMemoryValue", Fmt.Bytes(r.Local), Fmt.Bytes(r.NonLocal),
+                                Fmt.Bytes(r.Total)));
+                y = Line(g, lb, vb, x, y, infoW, I18n.T("detail.committed"),
+                         I18n.F("detail.committedValue", Fmt.Bytes(r.Committed), Fmt.Bytes(r.Dedicated)));
 
                 string eng = EnginesText(r.Gp);
-                y = Line(g, lb, vb, x, y, infoW, "Motores", eng.Length > 0 ? eng : "sem atividade");
+                y = Line(g, lb, vb, x, y, infoW, I18n.T("detail.engines"),
+                         eng.Length > 0 ? eng : I18n.T("detail.noEngineActivity"));
             }
 
             if (pi != null && pi.RiskNote.Length > 0)
@@ -1298,13 +1534,15 @@ namespace VramMonitor
                 shr += _rows[i].NonLocal;
             }
 
-            string left = _rows.Count + " processos com GPU   ·   Σ dedicada " + Fmt.Bytes(ded) +
-                          "   ·   Σ compartilhada " + Fmt.Bytes(shr) +
-                          "   ·   Σ total " + Fmt.Bytes(ded + shr);
+            string left = I18n.F("status.processes", _rows.Count) +
+                          "   ·   " + I18n.F("status.sumDedicated", Fmt.Bytes(ded)) +
+                          "   ·   " + I18n.F("status.sumShared", Fmt.Bytes(shr)) +
+                          "   ·   " + I18n.F("status.sumTotal", Fmt.Bytes(ded + shr));
             if (_snap != null)
                 left += "   ·   " + _snap.Taken.ToString("HH:mm:ss", CultureInfo.CurrentCulture);
-            if (_orderFrozen) left += "   ·   ordem congelada (volte ao topo para reordenar)";
-            if (_paused) left += "   ·   PAUSADO";
+            left += "   ·   " + I18n.T(_elevated ? "toolbar.elevated" : "toolbar.notElevated");
+            if (_orderFrozen) left += "   ·   " + I18n.T("status.frozen");
+            if (_paused) left += "   ·   " + I18n.T("status.paused");
 
             using (SolidBrush br = new SolidBrush(UiTheme.TextDim))
                 g.DrawString(left, _fSmall, br, Dpi.S(10), Dpi.S(5));
@@ -1318,7 +1556,7 @@ namespace VramMonitor
             }
             else
             {
-                right = "Del matar   ·   Ctrl+C taskkill   ·   F5 atualizar   ·   Espaço pausar";
+                right = I18n.T("status.hints");
             }
             SizeF sz = g.MeasureString(right, _fSmall);
             using (SolidBrush br = new SolidBrush(rc))
@@ -1348,9 +1586,9 @@ namespace VramMonitor
         private void TogglePause()
         {
             _paused = !_paused;
-            _btnPause.Text = _paused ? "Retomar" : "Pausar";
+            _btnPause.Text = I18n.T(_paused ? "toolbar.resume" : "toolbar.pause");
             _btnPause.ForeColor = _paused ? UiTheme.Warn : UiTheme.Text;
-            if (_miTrayPause != null) _miTrayPause.Text = _paused ? "Retomar" : "Pausar";
+            if (_miTrayPause != null) _miTrayPause.Text = I18n.T(_paused ? "toolbar.resume" : "toolbar.pause");
             _status.Invalidate();
         }
 
@@ -1358,7 +1596,7 @@ namespace VramMonitor
         {
             if (_selected == null) return;
             TrySetClipboard("taskkill /F /PID " + _selected.Gp.Pid.ToString(CultureInfo.InvariantCulture));
-            Flash("comando copiado");
+            Flash(I18n.T("status.flashCopied"));
         }
 
         private void TrySetClipboard(string text)
@@ -1391,7 +1629,7 @@ namespace VramMonitor
             catch (Exception)
             {
                 SingleInstance.TryAcquire(); // UAC recusado: seguimos sendo a única instância
-                Flash("elevação cancelada");
+                Flash(I18n.T("status.flashElevationCancelled"));
                 return;
             }
 
@@ -1422,64 +1660,18 @@ namespace VramMonitor
             {
                 TrySetClipboard(AppInfo.DonateUrl);
                 MessageBox.Show(this,
-                    "Não foi possível abrir o navegador. O link foi copiado para a área de " +
-                    "transferência:\r\n\r\n" + AppInfo.DonateUrl,
-                    "Apoiar o projeto", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    I18n.F("dialog.donateFail", AppInfo.DonateUrl),
+                    I18n.T("dialog.donateFailTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
         private void ShowHelp()
         {
-            string s =
-AppInfo.NameWithVersion + "\r\n" + AppInfo.Repo + "\r\n\r\n" +
-"COMO LER OS NÚMEROS\r\n\r\n" +
-"• VRAM dedicada — bytes do processo residentes na memória física da placa (contador\r\n" +
-"  'Local Usage'). É o que realmente ocupa a VRAM.\r\n\r\n" +
-"• Compartilhada — bytes que transbordaram para a RAM do sistema ('Non Local Usage').\r\n" +
-"  Faz parte do total de memória da GPU, mas não ocupa VRAM física.\r\n\r\n" +
-"• Total GPU — dedicada + compartilhada. É a 'Memória da GPU' do Gerenciador de Tarefas.\r\n\r\n" +
-"• Comprometido — tudo que o processo reservou ('Total Committed'), incluindo blocos\r\n" +
-"  compartilhados entre processos e blocos paginados. A soma de todos os processos pode\r\n" +
-"  passar do total físico, porque uma alocação compartilhada é contada em cada processo\r\n" +
-"  que a referencia — é por isso que o dwm.exe às vezes aparece com dezenas de GB.\r\n" +
-"  Não use esta coluna para decidir quem está enchendo a VRAM.\r\n\r\n" +
-"• GPU / Motor — utilização do motor mais ativo (3D, Compute, Copy, VideoDecode...).\r\n\r\n" +
-"• Painel inferior — os blocos por segmento físico do adaptador, que é o máximo de\r\n" +
-"  granularidade que o Windows expõe sem rastreamento por ETW no kernel.\r\n\r\n" +
-"SEGURANÇA AO ENCERRAR\r\n\r\n" +
-"• CRÍTICO — matar causa tela azul ou queda da sessão (System, csrss, lsass,\r\n" +
-"  winlogon, services...). O monitor bloqueia a ação.\r\n" +
-"• Sistema — conta SYSTEM/serviço ou sessão 0. Exige confirmação explícita e mostra\r\n" +
-"  quais serviços caem junto.\r\n" +
-"• Elevado — token de administrador. Pode exigir o monitor elevado ou o UAC.\r\n" +
-"• Usuário — processo comum da sua sessão.\r\n\r\n" +
-"ATALHOS\r\n\r\n" +
-"Del  matar          Ctrl+C  copiar taskkill      F5  atualizar\r\n" +
-"Espaço  pausar      Ctrl+F  filtro               F1  esta ajuda\r\n" +
-"Duplo-clique numa linha abre a confirmação de encerramento.\r\n\r\n" +
-"LISTA E ORDENAÇÃO\r\n\r\n" +
-"Com o ponteiro sobre a lista, ou com o scroll fora do topo, a ordem congela:\r\n" +
-"os valores continuam atualizando, mas as linhas param de trocar de lugar para\r\n" +
-"você conseguir ler. Volte ao topo e tire o mouse para retomar o ranking vivo.\r\n\r\n" +
-"BANDEJA E PONTE HEADLESS\r\n\r\n" +
-"O botão fechar (X) minimiza para a área de notificações e o monitor continua\r\n" +
-"rodando; o ícone mostra a % de VRAM dedicada. Use 'Sair' no menu da bandeja\r\n" +
-"para encerrar de verdade.\r\n\r\n" +
-"A cada amostra o app grava um JSON completo em:\r\n" +
-"  " + _jsonPath + "\r\n" +
-"É a ponte headless: qualquer script (ou agente) pode ler esse arquivo sem\r\n" +
-"precisar da janela. Dá para ligar/desligar no menu da bandeja.\r\n\r\n" +
-"Sem a janela aberta, a linha de comando faz o mesmo:\r\n" +
-"  VramMonitor.exe --json            um snapshot no stdout\r\n" +
-"  VramMonitor.exe --text            tabela legível\r\n" +
-"  VramMonitor.exe --watch           um JSON por linha, contínuo\r\n" +
-"  VramMonitor.exe --headless        sem janela, só atualizando o arquivo\r\n" +
-"  VramMonitor.exe --kill PID        encerra com as mesmas travas\r\n" +
-"  VramMonitor.exe --help            todas as opções";
-            MessageBox.Show(this, s, "Monitor de VRAM — ajuda",
-                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this,
+                I18n.Joined("help.body", _jsonPath, I18n.UserLangDir()),
+                AppInfo.NameWithVersion + " — " + I18n.T("help.title"),
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
-
         private void KillSelected()
         {
             if (_selected == null) return;
@@ -1491,7 +1683,7 @@ AppInfo.NameWithVersion + "\r\n" + AppInfo.Repo + "\r\n\r\n" +
                 pi.Pid = pid;
                 pi.Name = "(pid " + pid + ")";
                 pi.Risk = RiskLevel.Elevated;
-                pi.RiskNote = "Metadados indisponíveis para este processo.";
+                pi.RiskNoteKey = "kill.noMetadata";
             }
 
             using (KillConfirmForm dlg = new KillConfirmForm(pi, _selected.Gp, _elevated))
@@ -1504,8 +1696,8 @@ AppInfo.NameWithVersion + "\r\n" + AppInfo.Repo + "\r\n\r\n" +
             if (res.Outcome == KillOutcome.AccessDenied)
             {
                 DialogResult dr = MessageBox.Show(this,
-                    res.Message + "\r\n\r\nTentar novamente com elevação (taskkill via UAC)?",
-                    "Acesso negado", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    I18n.F("dialog.accessDeniedRetry", res.Message),
+                    I18n.T("dialog.accessDeniedTitle"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                 if (dr == DialogResult.Yes)
                     res = ProcessCatalog.KillElevated(pid);
             }
@@ -1514,18 +1706,18 @@ AppInfo.NameWithVersion + "\r\n" + AppInfo.Repo + "\r\n\r\n" +
             {
                 _catalog.Forget(pid);
                 _selected = null;
-                Flash("PID " + pid + " encerrado");
+                Flash(I18n.F("status.flashKilled", pid));
                 ForceRefresh();
             }
             else if (res.Outcome == KillOutcome.NotFound)
             {
                 _catalog.Forget(pid);
-                Flash("PID " + pid + " já não existia");
+                Flash(I18n.F("status.flashGone", pid));
                 ForceRefresh();
             }
             else
             {
-                MessageBox.Show(this, res.Message, "Falha ao encerrar",
+                MessageBox.Show(this, res.Message, I18n.T("dialog.killFailTitle"),
                                 MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

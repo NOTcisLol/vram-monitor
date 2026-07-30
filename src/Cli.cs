@@ -111,6 +111,10 @@ namespace VramMonitor
                 return 0;
             }
 
+            // Os modos headless também respeitam o idioma salvo (o --text é legível).
+            Settings st = Settings.Load();
+            I18n.Init(I18n.Resolve(st.Language));
+
             if (mode == "kill")
                 return DoKill(pid, force);
 
@@ -151,9 +155,8 @@ namespace VramMonitor
                 bool headless = mode == "headless";
 
                 if (headless)
-                    Out("ponte headless ativa · arquivo: " + outPath +
-                        (jsonl != null ? " · historico: " + jsonl : "") +
-                        " · intervalo " + interval + " ms · Ctrl+C para parar");
+                    Out(I18n.F("cli.bridgeActive", outPath, interval) +
+                        (jsonl != null ? I18n.F("cli.bridgeHistory", jsonl) : ""));
 
                 while (DateTime.UtcNow < stopAt && (count <= 0 || emitted < count))
                 {
@@ -170,7 +173,7 @@ namespace VramMonitor
                         }
                         catch (Exception ex)
                         {
-                            Out("erro ao gravar " + outPath + ": " + ex.Message);
+                            Out(I18n.F("cli.writeError", outPath, ex.Message));
                         }
                     }
                     else
@@ -258,8 +261,7 @@ namespace VramMonitor
             {
                 j.Bool("ok", false);
                 j.Str("reason", "critical-blocked");
-                j.Str("message", "Processo critico do Windows: encerrar causaria BSOD ou queda da " +
-                                 "sessao. Bloqueado por design, nem --force libera.");
+                j.Str("message", I18n.T("risk.note.critical"));
                 j.EndObj();
                 Out(j.ToString());
                 return 3;
@@ -270,8 +272,8 @@ namespace VramMonitor
             {
                 j.Bool("ok", false);
                 j.Str("reason", "needs-force");
-                j.Str("message", "Processo " + (pi.Risk == RiskLevel.System ? "do sistema" : "elevado") +
-                                 ". Repita com --force para confirmar.");
+                j.Str("message", "Risk level " + SnapshotJson.RiskCode(pi.Risk) +
+                                 ": repeat with --force to confirm.");
                 if (pi.Services.Count > 0) j.Str("services", pi.ServicesText);
                 j.EndObj();
                 Out(j.ToString());
@@ -299,8 +301,8 @@ namespace VramMonitor
         private static void PrintText(GpuSnapshot snap, ProcessCatalog catalog, int topN, long minBytes)
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine("Monitor de VRAM  ·  " +
-                          DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.CurrentCulture));
+            sb.AppendLine(AppInfo.NameWithVersion + "  ·  " +
+                          DateTime.Now.ToString("G", CultureInfo.CurrentCulture));
             sb.AppendLine();
 
             for (int i = 0; i < snap.Adapters.Count; i++)
@@ -309,12 +311,12 @@ namespace VramMonitor
                 if (a.DedicatedTotal <= 0 && a.DedicatedUsed <= 0 && a.SharedUsed <= 0) continue;
                 double p = a.DedicatedTotal > 0 ? 100.0 * a.DedicatedUsed / a.DedicatedTotal : 0;
                 sb.AppendLine(a.Label);
-                sb.AppendLine("  dedicada       " + Pad(Fmt.Bytes(a.DedicatedUsed), 12) + " / " +
+                sb.AppendLine("  " + Pad(I18n.T("cli.dedicated"), 15) + Pad(Fmt.Bytes(a.DedicatedUsed), 12) + " / " +
                               Fmt.Gb(a.DedicatedTotal) + " GB   " +
                               p.ToString("N1", CultureInfo.CurrentCulture) + "%");
-                sb.AppendLine("  compartilhada  " + Pad(Fmt.Bytes(a.SharedUsed), 12) + " / " +
+                sb.AppendLine("  " + Pad(I18n.T("cli.shared"), 15) + Pad(Fmt.Bytes(a.SharedUsed), 12) + " / " +
                               Fmt.Gb(a.SharedTotal) + " GB");
-                sb.AppendLine("  total GPU      " + Pad(Fmt.Bytes(a.DedicatedUsed + a.SharedUsed), 12) +
+                sb.AppendLine("  " + Pad(I18n.T("cli.totalGpu"), 15) + Pad(Fmt.Bytes(a.DedicatedUsed + a.SharedUsed), 12) +
                               " / " + Fmt.Gb(a.DedicatedTotal + a.SharedTotal) + " GB");
                 sb.AppendLine();
             }
@@ -322,8 +324,10 @@ namespace VramMonitor
             List<GpuProcess> procs = new List<GpuProcess>(snap.Processes);
             procs.Sort(delegate(GpuProcess a, GpuProcess b) { return b.Local.CompareTo(a.Local); });
 
-            sb.AppendLine(Pad("PID", 8) + Pad("PROCESSO", 24) + PadL("DEDICADA", 12) +
-                          PadL("COMPART.", 12) + PadL("TOTAL", 12) + PadL("GPU%", 7) + "  TIPO");
+            sb.AppendLine(Pad(I18n.T("cli.colPid"), 8) + Pad(I18n.T("cli.colProcess"), 24) +
+                          PadL(I18n.T("cli.colDedicated"), 12) + PadL(I18n.T("cli.colShared"), 12) +
+                          PadL(I18n.T("cli.colTotal"), 12) + PadL(I18n.T("cli.colGpu"), 7) +
+                          "  " + I18n.T("cli.colType"));
             sb.AppendLine(new string('-', 92));
 
             long sd = 0, ss = 0;
@@ -348,8 +352,7 @@ namespace VramMonitor
                     "  " + (pi != null ? pi.RiskText : "?"));
             }
             sb.AppendLine(new string('-', 92));
-            sb.AppendLine("Soma: dedicada " + Fmt.Bytes(sd) + "  ·  compartilhada " + Fmt.Bytes(ss) +
-                          "  ·  total " + Fmt.Bytes(sd + ss) + "  ·  " + procs.Count + " processos");
+            sb.AppendLine(I18n.F("cli.sum", Fmt.Bytes(sd), Fmt.Bytes(ss), Fmt.Bytes(sd + ss), procs.Count));
             Out(sb.ToString());
         }
 

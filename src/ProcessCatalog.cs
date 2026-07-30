@@ -34,7 +34,6 @@ namespace VramMonitor
         public bool HandleDenied;
         public long CreationTime;
         public RiskLevel Risk;
-        public string RiskNote = "";
         public List<string> Services = new List<string>();
 
         public string ServicesText
@@ -42,17 +41,42 @@ namespace VramMonitor
             get { return Services.Count == 0 ? "" : string.Join(", ", Services.ToArray()); }
         }
 
-        public string RiskText
+        /// <summary>Chave do i18n do texto de risco, resolvida na hora de exibir.</summary>
+        public string RiskKey
         {
             get
             {
                 switch (Risk)
                 {
-                    case RiskLevel.Critical: return "CRÍTICO";
-                    case RiskLevel.System: return "Sistema";
-                    case RiskLevel.Elevated: return Elevated.HasValue ? "Elevado" : "Sem acesso";
-                    default: return "Usuário";
+                    case RiskLevel.Critical: return "risk.critical";
+                    case RiskLevel.System: return "risk.system";
+                    case RiskLevel.Elevated: return Elevated.HasValue ? "risk.elevated" : "risk.noAccess";
+                    default: return "risk.user";
                 }
+            }
+        }
+
+        public string RiskText
+        {
+            get { return I18n.T(RiskKey); }
+        }
+
+        /// <summary>
+        /// Chave e argumento da explicação de risco. Guardar a chave em vez do texto pronto
+        /// permite trocar de idioma sem reclassificar os processos.
+        /// </summary>
+        public string RiskNoteKey = "";
+        public string RiskNoteArg = "";
+
+        public string RiskNote
+        {
+            get
+            {
+                if (RiskNoteKey.Length == 0) return "";
+                if (RiskNoteKey == "risk.note.system")
+                    return I18n.F(RiskNoteKey,
+                        RiskNoteArg.Length > 0 ? RiskNoteArg : I18n.T("risk.accountFallback"));
+                return RiskNoteArg.Length > 0 ? I18n.F(RiskNoteKey, RiskNoteArg) : I18n.T(RiskNoteKey);
             }
         }
 
@@ -97,25 +121,25 @@ namespace VramMonitor
                 "smss", "csrss", "wininit", "winlogon", "services", "lsass", "lsaiso", "fontdrvhost"
             }, StringComparer.OrdinalIgnoreCase);
 
-        // Sistema, mas o Windows reinicia sozinho / impacto limitado.
+        // Sistema, mas o Windows reinicia sozinho / impacto limitado. O valor é a chave do i18n.
         private static readonly Dictionary<string, string> RestartNotes =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                { "dwm", "Compositor da área de trabalho. O Windows reinicia sozinho, mas a tela pisca e janelas podem perder conteúdo." },
-                { "explorer", "Shell do Windows. Barra de tarefas e área de trabalho desaparecem; normalmente reinicia sozinho." },
-                { "svchost", "Host de serviços do Windows. Derruba TODOS os serviços listados acima de uma vez." },
-                { "audiodg", "Isolamento de áudio. O áudio para e reinicia sozinho." },
-                { "sihost", "Shell Infrastructure Host. Menu iniciar / notificações podem falhar até reiniciar." },
-                { "searchhost", "Busca do Windows. Reinicia sozinho." },
-                { "runtimebroker", "Broker de permissões de apps da Store. Reinicia sozinho." },
-                { "textinputhost", "Host de entrada de texto (teclado virtual/IME). Reinicia sozinho." },
-                { "startmenuexperiencehost", "Menu Iniciar. Reinicia sozinho." },
-                { "shellexperiencehost", "Elementos do shell. Reinicia sozinho." },
-                { "wudfhost", "Host de driver em modo usuário. Pode derrubar periféricos." },
-                { "nvdisplay.container", "Serviço de vídeo NVIDIA." },
-                { "amddvr", "Captura de vídeo AMD." },
-                { "radeonsoftware", "Interface do AMD Software." },
-                { "amdow", "AMD Overlay/gerenciador de janelas." },
+                { "dwm", "restart.dwm" },
+                { "explorer", "restart.explorer" },
+                { "svchost", "restart.svchost" },
+                { "audiodg", "restart.audiodg" },
+                { "sihost", "restart.sihost" },
+                { "searchhost", "restart.searchhost" },
+                { "runtimebroker", "restart.runtimebroker" },
+                { "textinputhost", "restart.textinputhost" },
+                { "startmenuexperiencehost", "restart.startmenuexperiencehost" },
+                { "shellexperiencehost", "restart.shellexperiencehost" },
+                { "wudfhost", "restart.wudfhost" },
+                { "nvdisplay.container", "restart.nvdisplay" },
+                { "amddvr", "restart.amddvr" },
+                { "radeonsoftware", "restart.radeonsoftware" },
+                { "amdow", "restart.amdow" },
             };
 
         private readonly Dictionary<int, ProcInfo> _cache = new Dictionary<int, ProcInfo>();
@@ -379,44 +403,47 @@ namespace VramMonitor
             if (pi.Critical || CriticalNames.Contains(bare) || pi.Pid <= 4)
             {
                 pi.Risk = RiskLevel.Critical;
-                pi.RiskNote = "Processo crítico do Windows. Encerrar causa tela azul (BSOD) ou " +
-                              "queda imediata da sessão. O aplicativo bloqueia esta ação.";
+                pi.RiskNoteKey = "risk.note.critical";
+                pi.RiskNoteArg = "";
                 return;
             }
 
             string note;
             RestartNotes.TryGetValue(bare, out note);
+            pi.RiskNoteArg = "";
 
             if (isSystemSid || pi.SessionId == 0 || pi.Services.Count > 0)
             {
                 pi.Risk = RiskLevel.System;
-                pi.RiskNote = note != null
-                    ? note
-                    : "Processo do sistema (conta " + (pi.User.Length > 0 ? pi.User : "SYSTEM/serviço") +
-                      "). Encerrar pode desestabilizar o Windows ou parar serviços.";
+                if (note != null)
+                {
+                    pi.RiskNoteKey = note;
+                }
+                else
+                {
+                    // O texto sai do i18n na hora de exibir, para trocar de idioma sem reclassificar.
+                    pi.RiskNoteKey = "risk.note.system";
+                    pi.RiskNoteArg = pi.User;
+                }
                 return;
             }
 
             if (pi.Elevated.HasValue && pi.Elevated.Value)
             {
                 pi.Risk = RiskLevel.Elevated;
-                pi.RiskNote = note != null
-                    ? note
-                    : "Processo executando com elevação de administrador. Requer o monitor elevado " +
-                      "(ou confirmação do UAC) para ser encerrado.";
+                pi.RiskNoteKey = note != null ? note : "risk.note.elevated";
                 return;
             }
 
             if (!pi.Elevated.HasValue && pi.HandleDenied)
             {
                 pi.Risk = RiskLevel.Elevated;
-                pi.RiskNote = "Não foi possível abrir o processo para consulta: provavelmente está elevado " +
-                              "ou pertence a outro usuário. Encerrar exige privilégio de administrador.";
+                pi.RiskNoteKey = "risk.note.denied";
                 return;
             }
 
             pi.Risk = RiskLevel.Normal;
-            pi.RiskNote = note != null ? note : "Processo comum do usuário atual.";
+            pi.RiskNoteKey = note != null ? note : "risk.note.normal";
         }
 
         // -------------------------------------------------------------- servicos
@@ -502,17 +529,17 @@ namespace VramMonitor
                 if (err == Native.ERROR_ACCESS_DENIED)
                 {
                     r.Outcome = KillOutcome.AccessDenied;
-                    r.Message = "Acesso negado ao abrir o processo (erro 5).";
+                    r.Message = I18n.T("killmsg.accessDenied");
                 }
                 else if (err == Native.ERROR_INVALID_PARAMETER)
                 {
                     r.Outcome = KillOutcome.NotFound;
-                    r.Message = "O processo não existe mais (PID " + pid + ").";
+                    r.Message = I18n.F("killmsg.notFound", pid);
                 }
                 else
                 {
                     r.Outcome = KillOutcome.Failed;
-                    r.Message = "OpenProcess falhou: " + new Win32Exception(err).Message + " (erro " + err + ").";
+                    r.Message = I18n.F("killmsg.openFailed", new Win32Exception(err).Message, err);
                 }
                 return r;
             }
@@ -522,12 +549,12 @@ namespace VramMonitor
                 if (Native.TerminateProcess(h, 1))
                 {
                     r.Outcome = KillOutcome.Success;
-                    r.Message = "Processo " + pid + " encerrado.";
+                    r.Message = I18n.F("killmsg.terminated", pid);
                     return r;
                 }
                 int err = Marshal.GetLastWin32Error();
                 r.Outcome = err == Native.ERROR_ACCESS_DENIED ? KillOutcome.AccessDenied : KillOutcome.Failed;
-                r.Message = "TerminateProcess falhou: " + new Win32Exception(err).Message + " (erro " + err + ").";
+                r.Message = I18n.F("killmsg.terminateFailed", new Win32Exception(err).Message, err);
                 return r;
             }
             finally
@@ -556,26 +583,26 @@ namespace VramMonitor
                     if (p.HasExited && p.ExitCode != 0)
                     {
                         r.Outcome = KillOutcome.Failed;
-                        r.Message = "taskkill retornou código " + p.ExitCode + ".";
+                        r.Message = I18n.F("killmsg.taskkillCode", p.ExitCode);
                         p.Dispose();
                         return r;
                     }
                     p.Dispose();
                 }
                 r.Outcome = KillOutcome.Success;
-                r.Message = "taskkill /F /PID " + pid + " executado com elevacao.";
+                r.Message = I18n.F("killmsg.elevatedRan", pid);
             }
             catch (Win32Exception ex)
             {
                 r.Outcome = KillOutcome.Failed;
                 r.Message = ex.NativeErrorCode == 1223
-                    ? "Elevação cancelada pelo usuário (UAC)."
-                    : "Falha ao elevar: " + ex.Message;
+                    ? I18n.T("killmsg.uacCancelled")
+                    : I18n.F("killmsg.elevateFailed", ex.Message);
             }
             catch (Exception ex)
             {
                 r.Outcome = KillOutcome.Failed;
-                r.Message = "Falha ao elevar: " + ex.Message;
+                r.Message = I18n.F("killmsg.elevateFailed", ex.Message);
             }
             return r;
         }

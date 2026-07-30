@@ -55,8 +55,7 @@ namespace VramMonitor
             if (show.Count == 0)
             {
                 using (SolidBrush br = new SolidBrush(UiTheme.TextDim))
-                    g.DrawString("Nenhum adaptador de GPU com atividade detectada.",
-                                 _fLabel, br, Dpi.S(12), Dpi.S(12));
+                    g.DrawString(I18n.T("adapter.none"), _fLabel, br, Dpi.S(12), Dpi.S(12));
                 return;
             }
 
@@ -91,18 +90,19 @@ namespace VramMonitor
 
             if (total > 0)
             {
-                string tot = "Memória da GPU  " + Fmt.Gb(used) + " / " + Fmt.Gb(total) + " GB";
+                string tot = I18n.T("adapter.gpuMemory") + "  " +
+                             Fmt.Gb(used) + " / " + Fmt.Gb(total) + " GB";
                 SizeF sz = g.MeasureString(tot, _fValue);
                 using (SolidBrush br = new SolidBrush(UiTheme.Accent))
                     g.DrawString(tot, _fValue, br, right - sz.Width, r.Y + Dpi.S(8));
             }
 
             int y = r.Y + Dpi.S(36);
-            DrawRow(g, x, right, y, "Dedicada", a.DedicatedUsed, a.DedicatedTotal, fDed,
-                    UiTheme.Accent, UiTheme.AccentDim);
+            DrawRow(g, x, right, y, I18n.T("adapter.dedicated"),
+                    a.DedicatedUsed, a.DedicatedTotal, fDed, UiTheme.Accent, UiTheme.AccentDim);
             y += Dpi.S(30);
-            DrawRow(g, x, right, y, "Compartilhada", a.SharedUsed, a.SharedTotal, fShr,
-                    UiTheme.SharedClr, UiTheme.SharedDim);
+            DrawRow(g, x, right, y, I18n.T("adapter.shared"),
+                    a.SharedUsed, a.SharedTotal, fShr, UiTheme.SharedClr, UiTheme.SharedDim);
         }
 
         private void DrawRow(Graphics g, int x, int right, int y, string label,

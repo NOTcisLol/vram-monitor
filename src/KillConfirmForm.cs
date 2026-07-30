@@ -48,38 +48,39 @@ namespace VramMonitor
 
         private void BuildFacts()
         {
-            _facts.Add(new string[] { "Caminho", _pi.ExePath.Length > 0
-                ? _pi.ExePath : "(indisponível — sem acesso ao processo)" });
+            _facts.Add(new string[] { I18n.T("kill.path"), _pi.ExePath.Length > 0
+                ? _pi.ExePath : I18n.T("kill.pathUnavailable") });
             if (_pi.FileDescription.Length > 0)
-                _facts.Add(new string[] { "Descrição", _pi.FileDescription });
+                _facts.Add(new string[] { I18n.T("kill.description"), _pi.FileDescription });
             if (_pi.Company.Length > 0)
-                _facts.Add(new string[] { "Fornecedor", _pi.Company });
-            _facts.Add(new string[] { "Usuário", _pi.User.Length > 0 ? _pi.User : "(desconhecido)" });
-            _facts.Add(new string[] { "Sessão", _pi.SessionId == 0
-                ? "0 (sessão de serviços do Windows)"
+                _facts.Add(new string[] { I18n.T("kill.vendor"), _pi.Company });
+            _facts.Add(new string[] { I18n.T("kill.user"),
+                _pi.User.Length > 0 ? _pi.User : I18n.T("kill.userUnknown") });
+            _facts.Add(new string[] { I18n.T("kill.session"), _pi.SessionId == 0
+                ? I18n.T("kill.session0")
                 : _pi.SessionId.ToString(CultureInfo.InvariantCulture) });
-            _facts.Add(new string[] { "Elevação", _pi.Elevated.HasValue
-                ? (_pi.Elevated.Value ? "SIM — token de administrador" : "não")
-                : "desconhecida (acesso negado)" });
+            _facts.Add(new string[] { I18n.T("kill.elevation"), _pi.Elevated.HasValue
+                ? (_pi.Elevated.Value ? I18n.T("kill.elevationYes") : I18n.T("kill.elevationNo"))
+                : I18n.T("kill.elevationUnknown") });
             if (_pi.Services.Count > 0)
-                _facts.Add(new string[] { "Serviços", _pi.ServicesText });
+                _facts.Add(new string[] { I18n.T("kill.services"), _pi.ServicesText });
 
             if (_gp != null)
             {
-                string vram = Fmt.Bytes(_gp.Local) + " dedicada residente";
+                string vram = I18n.F("kill.freesValue", Fmt.Bytes(_gp.Local));
                 if (_gp.NonLocal > 0)
-                    vram += "  +  " + Fmt.Bytes(_gp.NonLocal) + " compartilhada";
-                vram += "   =   " + Fmt.Bytes(_gp.TotalResident);
-                _facts.Add(new string[] { "Libera", vram });
+                    vram += I18n.F("kill.freesShared", Fmt.Bytes(_gp.NonLocal));
+                vram += I18n.F("kill.freesTotal", Fmt.Bytes(_gp.TotalResident));
+                _facts.Add(new string[] { I18n.T("kill.frees"), vram });
                 if (_gp.Committed > _gp.TotalResident)
-                    _facts.Add(new string[] { "Comprometido",
-                        Fmt.Bytes(_gp.Committed) + " (inclui blocos compartilhados e paginados)" });
+                    _facts.Add(new string[] { I18n.T("kill.committed"),
+                        I18n.F("kill.committedValue", Fmt.Bytes(_gp.Committed)) });
             }
         }
 
         private void BuildUi()
         {
-            Text = "Encerrar processo — PID " + _pi.Pid;
+            Text = I18n.F("kill.title", _pi.Pid);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             StartPosition = FormStartPosition.CenterParent;
             MaximizeBox = false;
@@ -115,7 +116,7 @@ namespace VramMonitor
             cmdLbl.AutoSize = true;
             cmdLbl.ForeColor = UiTheme.TextDim;
             cmdLbl.Font = _fSmall;
-            cmdLbl.Text = "Comando equivalente:";
+            cmdLbl.Text = I18n.T("kill.command");
             cmdLbl.Location = new Point(pad, y);
             Controls.Add(cmdLbl);
 
@@ -130,11 +131,11 @@ namespace VramMonitor
             cmd.Size = new Size(Dpi.S(300), Dpi.S(26));
             Controls.Add(cmd);
 
-            Button copy = MakeButton("Copiar", pad + Dpi.S(310), y + Dpi.S(19), Dpi.S(88));
+            Button copy = MakeButton(I18n.T("kill.copy"), pad + Dpi.S(310), y + Dpi.S(19), Dpi.S(88));
             copy.Click += delegate(object s, EventArgs e)
             {
                 try { Clipboard.SetText(TaskkillCommand); } catch (Exception) { }
-                copy.Text = "Copiado";
+                copy.Text = I18n.T("kill.copied");
             };
             Controls.Add(copy);
 
@@ -148,8 +149,7 @@ namespace VramMonitor
                 warn.Location = new Point(pad, y);
                 warn.ForeColor = UiTheme.Critical;
                 warn.Font = _fSmall;
-                warn.Text = "Encerrar este processo travaria o Windows imediatamente. " +
-                            "A ação está bloqueada pelo monitor.";
+                warn.Text = I18n.T("kill.blocked");
                 Controls.Add(warn);
                 y += Dpi.S(44);
             }
@@ -163,9 +163,7 @@ namespace VramMonitor
                 _ack.BackColor = UiTheme.Bg;
                 _ack.FlatStyle = FlatStyle.Flat;
                 _ack.Font = _fSmall;
-                _ack.Text = _pi.Risk == RiskLevel.System
-                    ? "Entendo que é um processo do sistema e quero encerrá-lo"
-                    : "Entendo que o processo está elevado e quero encerrá-lo";
+                _ack.Text = I18n.T(_pi.Risk == RiskLevel.System ? "kill.ackSystem" : "kill.ackElevated");
                 _ack.CheckedChanged += delegate(object s, EventArgs e)
                 {
                     _kill.Enabled = _ack.Checked;
@@ -184,8 +182,7 @@ namespace VramMonitor
                 uac.Location = new Point(pad, y);
                 uac.ForeColor = UiTheme.TextDim;
                 uac.Font = _fSmall;
-                uac.Text = "O monitor não está elevado: se o encerramento direto falhar, será oferecido " +
-                           "um taskkill com prompt do UAC.";
+                uac.Text = I18n.T("kill.uacNote");
                 Controls.Add(uac);
                 y += Dpi.S(38);
             }
@@ -193,7 +190,7 @@ namespace VramMonitor
             y += Dpi.S(6);
 
             int btnW = Dpi.S(112);
-            Button cancel = MakeButton(blocked ? "Fechar" : "Cancelar",
+            Button cancel = MakeButton(I18n.T(blocked ? "kill.close" : "kill.cancel"),
                                        ClientSize.Width - pad - btnW, y, btnW);
             cancel.DialogResult = DialogResult.Cancel;
             Controls.Add(cancel);
@@ -202,7 +199,7 @@ namespace VramMonitor
             if (!blocked)
             {
                 int killW = Dpi.S(178);
-                _kill = MakeButton("Matar PID " + _pi.Pid,
+                _kill = MakeButton(I18n.F("kill.doKill", _pi.Pid),
                                    ClientSize.Width - pad - btnW - Dpi.S(8) - killW, y, killW);
                 _kill.DialogResult = DialogResult.OK;
                 _kill.Enabled = !needsAck;
@@ -251,10 +248,10 @@ namespace VramMonitor
             string tag;
             switch (_pi.Risk)
             {
-                case RiskLevel.Critical: tag = "PROCESSO CRÍTICO DO WINDOWS"; break;
-                case RiskLevel.System: tag = "PROCESSO DO SISTEMA"; break;
-                case RiskLevel.Elevated: tag = "PROCESSO ELEVADO (ADMIN)"; break;
-                default: tag = "PROCESSO DO USUÁRIO"; break;
+                case RiskLevel.Critical: tag = I18n.T("kill.tagCritical"); break;
+                case RiskLevel.System: tag = I18n.T("kill.tagSystem"); break;
+                case RiskLevel.Elevated: tag = I18n.T("kill.tagElevated"); break;
+                default: tag = I18n.T("kill.tagUser"); break;
             }
             using (SolidBrush br = new SolidBrush(risk))
             {
@@ -266,8 +263,7 @@ namespace VramMonitor
             }
 
             using (SolidBrush br = new SolidBrush(UiTheme.TextDim))
-                g.DrawString("PID " + _pi.Pid.ToString(CultureInfo.InvariantCulture),
-                             _fNormal, br, x, Dpi.S(42));
+                g.DrawString(I18n.F("kill.pid", _pi.Pid), _fNormal, br, x, Dpi.S(42));
 
             int y = Dpi.S(70);
             using (SolidBrush lb = new SolidBrush(UiTheme.TextDim))

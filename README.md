@@ -102,6 +102,31 @@ nota explicando o efeito real de encerrá-los.
 - Os modos headless (`--json`, `--text`, `--watch`, `--kill`) **não** passam pela trava:
   funcionam com a janela aberta ou fechada.
 
+## Idiomas
+
+**Inglês, português, espanhol, francês e alemão** vêm embutidos no executável — o download
+continua sendo um arquivo único. O seletor é o botão com o código do idioma na barra
+(`EN ▾`), a troca é imediata e a escolha fica salva. O padrão é inglês; há também a opção
+*Automático*, que segue o idioma do Windows.
+
+O idioma escolhido também governa a **formatação numérica**: em inglês `1.86 GB`, em
+português `1,86 GB`.
+
+Para acrescentar um idioma ou corrigir uma tradução sem recompilar, coloque um JSON em
+`lang\` ao lado do `.exe` ou em `%LOCALAPPDATA%\VramMonitor\lang`:
+
+```bash
+copy lang\en-US.json "%LOCALAPPDATA%\VramMonitor\lang\it-IT.json"
+```
+
+Edite `meta.code`, `meta.nativeName` e `meta.culture`, traduza os valores e reabra o app —
+o novo idioma aparece no seletor. Um arquivo com o mesmo `meta.code` de um embutido
+substitui o embutido, e chaves que faltarem caem no inglês, então uma tradução parcial já
+funciona. Erro de sintaxe é reportado na abertura.
+
+Contribuições de tradução são bem-vindas: os arquivos ficam em [`lang/`](lang/) e todos têm
+o mesmo conjunto de 188 chaves de `en-US.json`, que é a referência.
+
 ## Ponte headless
 
 Enquanto a janela está aberta (mesmo minimizada na bandeja), cada amostra grava um JSON
@@ -176,9 +201,11 @@ Processos vêm ordenados por `dedicatedBytes` decrescente. Strings são ASCII pu
 | `src/Native.cs` | P/Invoke: PDH, APIs de processo/token, DXGI |
 | `src/GpuSampler.cs` | Consulta PDH, agrega por PID/adaptador/segmento, nomes via DXGI |
 | `src/ProcessCatalog.cs` | Metadados, elevação, criticidade, serviços (WMI), encerramento |
-| `src/JsonExport.cs` | Escritor JSON e serialização do snapshot (a ponte) |
+| `src/JsonExport.cs` | Leitor e escritor JSON, serialização do snapshot (a ponte) |
 | `src/Cli.cs` | Modos headless |
 | `src/MainForm.cs` | Janela, lista, bandeja, atalhos |
+| `src/I18n.cs`, `lang/*.json` | Idiomas da interface (inglês é a referência) |
+| `src/Settings.cs` | Preferências em %LOCALAPPDATA% |
 | `src/AdapterHeader.cs`, `src/KillConfirmForm.cs`, `src/Theme.cs`, `src/TrayGauge.cs` | UI |
 | `src/SingleInstance.cs` | Trava de instância única e sinalização da janela existente |
 | `src/Version.cs` | Versão (fonte única) e metadados do executável |

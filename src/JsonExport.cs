@@ -130,6 +130,164 @@ namespace VramMonitor
     }
 
     /// <summary>
+    /// Leitor JSON mínimo, escrito à mão de propósito: o app não pode depender de
+    /// System.Web.Extensions nem de qualquer assembly que possa faltar na máquina do usuário.
+    /// Achata o documento em chaves pontuadas ("toolbar.pause", "risk.critical").
+    /// </summary>
+    internal static class JsonReader
+    {
+        public static Dictionary<string, string> Flatten(string text)
+        {
+            Dictionary<string, string> map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (text == null) return map;
+            int i = 0;
+            SkipWs(text, ref i);
+            if (i < text.Length && text[i] == '﻿') i++;   // BOM
+            SkipWs(text, ref i);
+            Expect(text, ref i, '{');
+            ReadObject(text, ref i, "", map);
+            return map;
+        }
+
+        private static void ReadObject(string s, ref int i, string prefix,
+                                       Dictionary<string, string> map)
+        {
+            SkipWs(s, ref i);
+            if (i < s.Length && s[i] == '}') { i++; return; }
+
+            while (true)
+            {
+                SkipWs(s, ref i);
+                string key = ReadString(s, ref i);
+                SkipWs(s, ref i);
+                Expect(s, ref i, ':');
+                SkipWs(s, ref i);
+                ReadValue(s, ref i, prefix.Length == 0 ? key : prefix + "." + key, map);
+                SkipWs(s, ref i);
+                if (i >= s.Length) Fail("fim inesperado do arquivo", i);
+                if (s[i] == ',') { i++; continue; }
+                if (s[i] == '}') { i++; return; }
+                Fail("esperado ',' ou '}'", i);
+            }
+        }
+
+        private static void ReadValue(string s, ref int i, string path,
+                                      Dictionary<string, string> map)
+        {
+            if (i >= s.Length) Fail("valor ausente", i);
+            char c = s[i];
+            if (c == '{')
+            {
+                i++;
+                ReadObject(s, ref i, path, map);
+                return;
+            }
+            if (c == '[')
+            {
+                i++;
+                int n = 0;
+                SkipWs(s, ref i);
+                if (i < s.Length && s[i] == ']') { i++; return; }
+                while (true)
+                {
+                    SkipWs(s, ref i);
+                    ReadValue(s, ref i, path + "." + n.ToString(CultureInfo.InvariantCulture), map);
+                    n++;
+                    SkipWs(s, ref i);
+                    if (i >= s.Length) Fail("fim inesperado dentro de array", i);
+                    if (s[i] == ',') { i++; continue; }
+                    if (s[i] == ']') { i++; return; }
+                    Fail("esperado ',' ou ']'", i);
+                }
+            }
+            if (c == '"')
+            {
+                map[path] = ReadString(s, ref i);
+                return;
+            }
+            if (Match(s, ref i, "true")) { map[path] = "true"; return; }
+            if (Match(s, ref i, "false")) { map[path] = "false"; return; }
+            if (Match(s, ref i, "null")) { map[path] = ""; return; }
+
+            int start = i;
+            while (i < s.Length && "+-.eE0123456789".IndexOf(s[i]) >= 0) i++;
+            if (i == start) Fail("valor invalido", i);
+            map[path] = s.Substring(start, i - start);
+        }
+
+        private static string ReadString(string s, ref int i)
+        {
+            Expect(s, ref i, '"');
+            StringBuilder sb = new StringBuilder();
+            while (true)
+            {
+                if (i >= s.Length) Fail("string sem fechamento", i);
+                char c = s[i++];
+                if (c == '"') return sb.ToString();
+                if (c != '\\') { sb.Append(c); continue; }
+                if (i >= s.Length) Fail("escape incompleto", i);
+                char e = s[i++];
+                switch (e)
+                {
+                    case '"': sb.Append('"'); break;
+                    case '\\': sb.Append('\\'); break;
+                    case '/': sb.Append('/'); break;
+                    case 'b': sb.Append('\b'); break;
+                    case 'f': sb.Append('\f'); break;
+                    case 'n': sb.Append('\n'); break;
+                    case 'r': sb.Append('\r'); break;
+                    case 't': sb.Append('\t'); break;
+                    case 'u':
+                        if (i + 4 > s.Length) Fail("escape \\u incompleto", i);
+                        sb.Append((char)int.Parse(s.Substring(i, 4), NumberStyles.HexNumber,
+                                                 CultureInfo.InvariantCulture));
+                        i += 4;
+                        break;
+                    default: Fail("escape desconhecido \\" + e, i); break;
+                }
+            }
+        }
+
+        private static bool Match(string s, ref int i, string word)
+        {
+            if (i + word.Length > s.Length) return false;
+            if (string.CompareOrdinal(s, i, word, 0, word.Length) != 0) return false;
+            i += word.Length;
+            return true;
+        }
+
+        private static void SkipWs(string s, ref int i)
+        {
+            while (i < s.Length)
+            {
+                char c = s[i];
+                if (c == ' ' || c == '\t' || c == '\r' || c == '\n') { i++; continue; }
+                // comentários de linha: tolerados para quem edita traduções à mão
+                if (c == '/' && i + 1 < s.Length && s[i + 1] == '/')
+                {
+                    while (i < s.Length && s[i] != '\n') i++;
+                    continue;
+                }
+                break;
+            }
+        }
+
+        private static void Expect(string s, ref int i, char c)
+        {
+            SkipWs(s, ref i);
+            if (i >= s.Length || s[i] != c)
+                Fail("esperado '" + c + "'", i);
+            i++;
+        }
+
+        private static void Fail(string msg, int pos)
+        {
+            throw new FormatException("JSON invalido na posicao " + pos.ToString(CultureInfo.InvariantCulture) +
+                                     ": " + msg);
+        }
+    }
+
+    /// <summary>
     /// Serializa um snapshot completo (adaptadores + processos + blocos) para JSON.
     /// É a "ponte headless": o mesmo formato sai no stdout da CLI e no arquivo exportado.
     /// </summary>
