@@ -42,7 +42,9 @@ Write-Host "Compilando -> $out" -ForegroundColor Cyan
 & $csc $args
 if ($LASTEXITCODE -ne 0) { throw "csc falhou com codigo $LASTEXITCODE" }
 
-$size = [math]::Round((Get-Item $out).Length / 1KB, 1)
-Write-Host "OK: VramMonitor.exe ($size KB)" -ForegroundColor Green
+$item = Get-Item $out
+$size = [math]::Round($item.Length / 1KB, 1)
+$ver = $item.VersionInfo.FileVersion
+Write-Host "OK: VramMonitor.exe v$ver ($size KB)" -ForegroundColor Green
 
 if ($Run) { Start-Process $out }

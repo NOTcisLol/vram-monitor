@@ -105,8 +105,9 @@ namespace VramMonitor
             }
             if (mode == "version")
             {
-                Out("VramMonitor 1.0  ·  schema JSON " +
-                    SnapshotJson.Schema.ToString(CultureInfo.InvariantCulture));
+                Out(AppInfo.NameWithVersion +
+                    "  ·  schema JSON " + SnapshotJson.Schema.ToString(CultureInfo.InvariantCulture) +
+                    "  ·  " + AppInfo.Repo);
                 return 0;
             }
 
@@ -408,7 +409,8 @@ namespace VramMonitor
         private static void PrintHelp()
         {
             Out(
-"Monitor de VRAM — memoria de GPU por processo\r\n" +
+AppInfo.NameWithVersion + " — memoria de GPU por processo\r\n" +
+AppInfo.Repo + "\r\n" +
 "\r\n" +
 "Sem argumentos abre a janela (com icone na area de notificacoes).\r\n" +
 "\r\n" +

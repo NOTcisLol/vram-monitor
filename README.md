@@ -1,5 +1,18 @@
 # Monitor de VRAM
 
+[![release](https://img.shields.io/github/v/release/NOTcisLol/vram-monitor?label=vers%C3%A3o)](https://github.com/NOTcisLol/vram-monitor/releases/latest)
+[![downloads](https://img.shields.io/github/downloads/NOTcisLol/vram-monitor/total?label=downloads)](https://github.com/NOTcisLol/vram-monitor/releases)
+![windows](https://img.shields.io/badge/Windows-10%201709%2B%20%7C%2011-0078D6)
+
+### ⬇ [Baixar VramMonitor.exe](https://github.com/NOTcisLol/vram-monitor/releases/latest/download/VramMonitor.exe)
+
+Arquivo único de ~100 KB, sem instalador e sem dependências — esse link sempre aponta para a
+versão mais recente. Na primeira execução o SmartScreen pode avisar que o publicador é
+desconhecido (o executável não é assinado): *Mais informações* → *Executar assim mesmo*. Quem
+preferir não confiar no binário [compila o próprio](#compilar) em segundos.
+
+---
+
 Mostra **qual processo está ocupando a VRAM** da GPU, com o tamanho dos blocos alocados por
 segmento do adaptador, e permite encerrar o processo com travas de segurança para processos
 do sistema, elevados e críticos.
@@ -16,7 +29,26 @@ Não precisa de SDK — usa o `csc.exe` que já vem no Windows (.NET Framework 4
 powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 
-Gera `VramMonitor.exe` (~99 KB, sem dependências). `-Run` compila e executa.
+Gera `VramMonitor.exe` (~100 KB, sem dependências). `-Run` compila e executa.
+
+## Versionamento
+
+A versão vive num único lugar: a constante `AppInfo.Version` em [`src/Version.cs`](src/Version.cs).
+Dela derivam o `AssemblyVersion`/`FileVersion` do executável (visível nas propriedades do
+arquivo), o título da janela, o `--version`, o cabeçalho da ajuda e o campo `appVersion` do JSON.
+As mudanças de cada versão ficam no [CHANGELOG.md](CHANGELOG.md), seguindo
+[SemVer](https://semver.org/lang/pt-BR/).
+
+Para lançar uma versão nova:
+
+```bash
+powershell -ExecutionPolicy Bypass -File release.ps1
+```
+
+O script lê a versão de `src/Version.cs`, exige a seção correspondente no `CHANGELOG.md`
+(que vira o corpo do release), recusa lançar com alterações não commitadas, compila, confere
+que o `FileVersion` do binário casa com a versão declarada, calcula o SHA-256 e cria a tag e o
+release com o `.exe` anexado. `-DryRun` mostra tudo sem publicar.
 
 ## Como ler os números
 
@@ -148,6 +180,8 @@ Processos vêm ordenados por `dedicatedBytes` decrescente. Strings são ASCII pu
 | `src/Cli.cs` | Modos headless |
 | `src/MainForm.cs` | Janela, lista, bandeja, atalhos |
 | `src/AdapterHeader.cs`, `src/KillConfirmForm.cs`, `src/Theme.cs`, `src/TrayGauge.cs` | UI |
+| `src/SingleInstance.cs` | Trava de instância única e sinalização da janela existente |
+| `src/Version.cs` | Versão (fonte única) e metadados do executável |
 
 O código é C# 5 (limite do `csc.exe` do .NET Framework) e todo literal em pixels passa por
 `Dpi.S()`, porque o app é system-DPI-aware.

@@ -100,7 +100,7 @@ namespace VramMonitor
         // ------------------------------------------------------------------- UI
         private void BuildUi()
         {
-            Text = "Monitor de VRAM — memória de GPU por processo";
+            Text = AppInfo.NameWithVersion + " — memória de GPU por processo";
             ClientSize = new Size(Dpi.S(1300), Dpi.S(820));
             MinimumSize = new Size(Dpi.S(1040), Dpi.S(640));
             StartPosition = FormStartPosition.CenterScreen;
@@ -1412,20 +1412,18 @@ namespace VramMonitor
             base.WndProc(ref m);
         }
 
-        private const string DonateUrl = "https://link.mercadopago.com.br/donatedev";
-
         private void OpenDonate()
         {
             try
             {
-                Process.Start(new ProcessStartInfo(DonateUrl) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(AppInfo.DonateUrl) { UseShellExecute = true });
             }
             catch (Exception)
             {
-                TrySetClipboard(DonateUrl);
+                TrySetClipboard(AppInfo.DonateUrl);
                 MessageBox.Show(this,
                     "Não foi possível abrir o navegador. O link foi copiado para a área de " +
-                    "transferência:\r\n\r\n" + DonateUrl,
+                    "transferência:\r\n\r\n" + AppInfo.DonateUrl,
                     "Apoiar o projeto", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
@@ -1433,6 +1431,7 @@ namespace VramMonitor
         private void ShowHelp()
         {
             string s =
+AppInfo.NameWithVersion + "\r\n" + AppInfo.Repo + "\r\n\r\n" +
 "COMO LER OS NÚMEROS\r\n\r\n" +
 "• VRAM dedicada — bytes do processo residentes na memória física da placa (contador\r\n" +
 "  'Local Usage'). É o que realmente ocupa a VRAM.\r\n\r\n" +

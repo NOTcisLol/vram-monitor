@@ -167,6 +167,7 @@ namespace VramMonitor
             Json j = new Json(pretty);
             j.Obj();
             j.Num("schema", Schema);
+            j.Str("appVersion", AppInfo.Version);
             j.Str("timestamp", DateTime.Now.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture));
             j.Str("source", source);
             j.Str("host", Environment.MachineName);
