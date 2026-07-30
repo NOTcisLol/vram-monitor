@@ -1,0 +1,13 @@
+# Binário compilado — gere com build.ps1 (ou baixe de Releases)
+*.exe
+*.pdb
+*.tmp
+
+# Saída da ponte headless
+snapshot.json
+*.jsonl
+
+# Lixo do Windows / OneDrive
+Thumbs.db
+desktop.ini
+*~
