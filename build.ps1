@@ -1,4 +1,4 @@
-# Compila o Monitor de VRAM com o csc do .NET Framework 4 (sem SDK, sem dependencias).
+﻿# Compila o Monitor de VRAM com o csc do .NET Framework 4 (sem SDK, sem dependencias).
 # Uso:  .\build.ps1          -> gera VramMonitor.exe
 #       .\build.ps1 -Run     -> compila e executa
 

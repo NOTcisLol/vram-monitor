@@ -1,4 +1,4 @@
-# Publica um release no GitHub a partir da versão declarada em src/Version.cs.
+﻿# Publica um release no GitHub a partir da versão declarada em src/Version.cs.
 #
 # Fluxo esperado ao lançar uma versão nova:
 #   1. altere AppInfo.Version em src/Version.cs
@@ -15,9 +15,22 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $root
 
+# Executáveis nativos escrevem progresso e avisos em stderr, o que o PowerShell trata como
+# erro terminante sob 'Stop'. Aqui o código de saída é o que decide.
+function Invoke-Native {
+    param([Parameter(Mandatory)][string]$File, [string[]]$Arguments = @())
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $out = & $File @Arguments 2>&1 | Out-String
+        return [pscustomobject]@{ Output = $out; Code = $LASTEXITCODE }
+    }
+    finally { $ErrorActionPreference = $prev }
+}
+
 # ---------------------------------------------------------------- versão
 $versionFile = Join-Path $root 'src\Version.cs'
-$src = Get-Content $versionFile -Raw
+$src = [System.IO.File]::ReadAllText($versionFile)   # UTF-8, não a codepage ANSI
 $m = [regex]::Match($src, 'Version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"')
 if (-not $m.Success) { throw "Nao achei AppInfo.Version em $versionFile" }
 $version = $m.Groups[1].Value
@@ -25,7 +38,7 @@ $tag = "v$version"
 Write-Host "versao: $version" -ForegroundColor Cyan
 
 # ---------------------------------------------------------------- changelog
-$changelog = Get-Content (Join-Path $root 'CHANGELOG.md') -Raw
+$changelog = [System.IO.File]::ReadAllText((Join-Path $root 'CHANGELOG.md'))
 $section = [regex]::Match($changelog, "(?ms)^##\s*\[$([regex]::Escape($version))\].*?(?=^##\s*\[|\z)")
 if (-not $section.Success) {
     throw "CHANGELOG.md nao tem a secao '## [$version]'. Escreva as mudancas antes de lancar."
@@ -41,15 +54,23 @@ if (-not (Test-Path $gh)) {
     $gh = $c.Source
 }
 
-$dirty = git status --porcelain
+$dirty = (Invoke-Native git @('status', '--porcelain')).Output.Trim()
 if ($dirty) {
     Write-Host 'AVISO: ha alteracoes nao commitadas:' -ForegroundColor Yellow
     Write-Host $dirty
     if (-not $DryRun) { throw 'Commit e push antes de lancar, senao a tag aponta para o codigo errado.' }
 }
 
-$existing = & $gh release view $tag --json tagName 2>$null
-if ($LASTEXITCODE -eq 0) { throw "O release $tag ja existe. Suba a versao em src/Version.cs." }
+$ahead = (Invoke-Native git @('log', '--oneline', '@{u}..HEAD')).Output.Trim()
+if ($ahead) {
+    Write-Host 'AVISO: commits locais ainda nao enviados:' -ForegroundColor Yellow
+    Write-Host $ahead
+    if (-not $DryRun) { throw 'Faca push antes de lancar: a tag do release aponta para o remoto.' }
+}
+
+if ((Invoke-Native $gh @('release', 'view', $tag, '--json', 'tagName')).Code -eq 0) {
+    throw "O release $tag ja existe. Suba a versao em src/Version.cs e escreva a secao no CHANGELOG."
+}
 
 # ---------------------------------------------------------------- build
 & (Join-Path $root 'build.ps1')
@@ -95,8 +116,10 @@ if ($DryRun) {
     return
 }
 
-& $gh release create $tag $exe --title "$tag - Monitor de VRAM" --notes-file $notesFile
-if ($LASTEXITCODE -ne 0) { throw "gh release create falhou ($LASTEXITCODE)" }
+$res = Invoke-Native $gh @('release', 'create', $tag, $exe,
+                           '--title', "$tag - Monitor de VRAM", '--notes-file', $notesFile)
+Write-Host $res.Output
+if ($res.Code -ne 0) { throw "gh release create falhou ($($res.Code))" }
 
 Remove-Item $notesFile -ErrorAction SilentlyContinue
 Write-Host "`nrelease $tag publicado" -ForegroundColor Green
