@@ -50,6 +50,12 @@ namespace VramMonitor
         private Button _btnHelp;
         private Button _btnDonate;
         private Button _btnLang;
+        private Button _btnOptions;
+        private ContextMenuStrip _optionsMenu;
+        private ToolStripMenuItem _miOptStartup;
+        private ToolStripMenuItem _miOptJson;
+        private ToolStripMenuItem _miOptCopyJson;
+        private ToolStripMenuItem _miOptOpenJson;
         private Label _lblAdapter;
         private Label _lblFilter;
         private Label _lblInterval;
@@ -198,6 +204,12 @@ namespace VramMonitor
             _btnHelp = MakeButton("?", 0, Dpi.S(9), Dpi.S(30));
             _btnHelp.Click += delegate(object s, EventArgs e) { ShowHelp(); };
             _bar.Controls.Add(_btnHelp);
+
+            // As opções também existem no menu da bandeja, mas o Windows 11 esconde ícones
+            // novos no overflow — sem este botão o "iniciar com o Windows" fica invisível.
+            _btnOptions = MakeButton("⚙", 0, Dpi.S(9), Dpi.S(34));
+            _btnOptions.Click += delegate(object s, EventArgs e) { ShowOptionsMenu(); };
+            _bar.Controls.Add(_btnOptions);
 
             _btnDonate = MakeButton("", 0, Dpi.S(9), Dpi.S(84));
             _btnDonate.ForeColor = UiTheme.Donate;
@@ -396,6 +408,10 @@ namespace VramMonitor
             _btnHelp.Top = btnY;
             right -= _btnHelp.Width + gap;
 
+            _btnOptions.Left = right - _btnOptions.Width;
+            _btnOptions.Top = btnY;
+            right -= _btnOptions.Width + gap;
+
             _btnLang.Left = right - _btnLang.Width;
             _btnLang.Top = btnY;
             right -= _btnLang.Width + gap;
@@ -582,6 +598,7 @@ namespace VramMonitor
                 catch (Exception) { }
             }
 
+            ApplyOptionTexts();
             _adapterComboDirty = true;
             LayoutToolbar();
             if (_snap != null) Rebuild();      // RiskText e o combo de adaptadores mudam de idioma
@@ -596,6 +613,74 @@ namespace VramMonitor
             string code = I18n.CurrentCode;
             string two = code.Length >= 2 ? code.Substring(0, 2).ToUpperInvariant() : code.ToUpperInvariant();
             return two + " ▾";
+        }
+
+        /// <summary>Menu de opções da janela: o mesmo conteúdo prático do menu da bandeja.</summary>
+        private void ShowOptionsMenu()
+        {
+            if (_optionsMenu == null)
+            {
+                _optionsMenu = new ContextMenuStrip();
+                _optionsMenu.BackColor = UiTheme.Panel;
+                _optionsMenu.ForeColor = UiTheme.Text;
+                _optionsMenu.Renderer = new ToolStripProfessionalRenderer(new DarkColorTable());
+
+                _miOptStartup = new ToolStripMenuItem("", null,
+                    delegate(object s, EventArgs e) { ToggleStartup(); });
+                _optionsMenu.Items.Add(_miOptStartup);
+
+                _optionsMenu.Items.Add(new ToolStripSeparator());
+
+                _miOptJson = new ToolStripMenuItem("", null, delegate(object s, EventArgs e)
+                {
+                    _exportJson = !_exportJson;
+                    _settings.ExportJson = _exportJson;
+                    _settings.Save();
+                    Flash(I18n.T(_exportJson ? "status.flashJsonOn" : "status.flashJsonOff"));
+                    RefreshOptionChecks();
+                });
+                _optionsMenu.Items.Add(_miOptJson);
+
+                _miOptCopyJson = new ToolStripMenuItem("", null, delegate(object s, EventArgs e)
+                {
+                    TrySetClipboard(_jsonPath);
+                    Flash(I18n.T("status.flashPathCopied"));
+                });
+                _optionsMenu.Items.Add(_miOptCopyJson);
+
+                _miOptOpenJson = new ToolStripMenuItem("", null, delegate(object s, EventArgs e)
+                {
+                    try { Process.Start("explorer.exe", "/select,\"" + _jsonPath + "\""); }
+                    catch (Exception) { }
+                });
+                _optionsMenu.Items.Add(_miOptOpenJson);
+            }
+
+            ApplyOptionTexts();
+            _optionsMenu.Show(_btnOptions, new Point(0, _btnOptions.Height));
+        }
+
+        private void ApplyOptionTexts()
+        {
+            if (_miOptStartup == null) return;
+            _miOptJson.Text = I18n.T("tray.exportJson");
+            _miOptCopyJson.Text = I18n.T("tray.copyJsonPath");
+            _miOptOpenJson.Text = I18n.T("menu.openLocation");
+            RefreshOptionChecks();
+        }
+
+        private void RefreshOptionChecks()
+        {
+            if (_miOptStartup == null) return;
+            _miOptJson.Checked = _exportJson;
+            if (_miTrayJson != null) _miTrayJson.Checked = _exportJson;
+
+            StartupScope scope = Startup.Current;
+            _miOptStartup.Checked = scope != StartupScope.None;
+            string suffix = "";
+            if (scope == StartupScope.AllUsers) suffix = "   (" + I18n.T("startup.allUsers") + ")";
+            else if (scope == StartupScope.CurrentUser) suffix = "   (" + I18n.T("startup.thisUser") + ")";
+            _miOptStartup.Text = I18n.T("tray.startup") + suffix;
         }
 
         private void ShowLanguageMenu()
@@ -769,6 +854,7 @@ namespace VramMonitor
 
         private void RefreshStartupItem()
         {
+            RefreshOptionChecks();
             if (_miTrayStartup == null) return;
             StartupScope scope = Startup.Current;
             _miTrayStartup.Checked = scope != StartupScope.None;

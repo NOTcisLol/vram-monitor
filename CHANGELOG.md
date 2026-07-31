@@ -21,6 +21,9 @@ o `release.ps1` usa esta seção como corpo do release e se recusa a publicar se
   ele estiver no escopo de todos os usuários.
 - O atalho aponta para o executável com `--tray`, então o monitor sobe direto na área de
   notificações em vez de abrir a janela na cara de quem ligou o computador.
+- Botão **⚙** na barra de ferramentas, abrindo o mesmo menu de opções da bandeja (iniciar
+  com o Windows, ponte JSON, copiar/abrir o caminho do JSON). Sem ele o início automático
+  ficava só na bandeja, que o Windows 11 esconde no overflow por padrão — ou seja, invisível.
 - Modos de linha de comando `--install-startup` e `--uninstall-startup`, com `--all-users`.
   São o que a interface executa elevada, e também servem para scriptar a instalação.
 - Skill do Claude Code em [`.claude/skills/vram`](.claude/skills/vram/SKILL.md): lê a ponte

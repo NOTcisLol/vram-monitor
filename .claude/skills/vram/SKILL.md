@@ -45,7 +45,7 @@ VramMonitor.exe --json --top 15
 
 Leva cerca de 1 s (precisa de duas amostras para calcular a utilização dos motores).
 Se `VramMonitor.exe` não estiver no PATH, procure na pasta do projeto — neste computador é
-`C:\Users\conne\OneDrive\Documentos\Vram monitor\VramMonitor.exe` — e chame pelo caminho
+`C:\Users\conne\Documents\Vram monitor\VramMonitor.exe` — e chame pelo caminho
 completo, entre aspas por causa do espaço. Se o arquivo não existir, compile com
 `build.ps1` na pasta do projeto ou baixe de
 github.com/NOTcisLol/vram-monitor/releases/latest.

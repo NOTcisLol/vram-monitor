@@ -91,7 +91,7 @@ nota explicando o efeito real de encerrá-los.
   rodando; o ícone mostra a % de VRAM dedicada. `Sair` no menu da bandeja encerra de verdade.
   No Windows 11 o ícone nasce escondido no overflow (`^`) — para fixá-lo:
   *Configurações → Personalização → Barra de tarefas → Outros ícones da bandeja do sistema*.
-- **Iniciar com o Windows:** no menu da bandeja. Tenta primeiro a pasta de inicialização
+- **Iniciar com o Windows:** no botão ⚙ da barra e no menu da bandeja. Tenta primeiro a pasta de inicialização
   comum (`shell:common startup`, todos os usuários) relançando-se elevado — daí o UAC. Se a
   elevação for recusada, um popup oferece instalar só para o seu usuário (`shell:startup`),
   que não pede nada. O atalho usa `--tray`, então o monitor sobe direto na bandeja. Dá para
