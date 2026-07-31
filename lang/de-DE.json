@@ -5,11 +5,9 @@
     "nativeName": "Deutsch",
     "culture": "de-DE"
   },
-
   "app": {
     "subtitle": "GPU-Speicher pro Prozess"
   },
-
   "toolbar": {
     "adapter": "Adapter",
     "allAdapters": "Alle",
@@ -29,7 +27,6 @@
     "language": "Sprache",
     "languageAuto": "Automatisch (Windows-Sprache)"
   },
-
   "col": {
     "pid": "PID",
     "process": "Prozess",
@@ -43,7 +40,6 @@
     "user": "Benutzer",
     "detail": "Dienste / Beschreibung"
   },
-
   "seg": {
     "title": "Zugewiesene Blöcke pro Adaptersegment",
     "adapter": "Adapter",
@@ -53,14 +49,12 @@
     "dedicatedCommitted": "Dediziert zugesichert",
     "totalCommitted": "Gesamt zugesichert"
   },
-
   "adapter": {
     "gpuMemory": "GPU-Speicher",
     "dedicated": "Dediziert",
     "shared": "Gemeinsam",
     "none": "Kein GPU-Adapter mit Aktivität erkannt."
   },
-
   "detail": {
     "selectHint": "Wählen Sie einen Prozess, um Details und zugewiesene Blöcke zu sehen.",
     "path": "Pfad",
@@ -79,7 +73,6 @@
     "elevatedNo": "nicht erhöht",
     "elevationUnknown": "kein Zugriff"
   },
-
   "menu": {
     "kill": "Prozess beenden",
     "killPid": "PID {0} beenden (kill)",
@@ -89,20 +82,19 @@
     "openLocation": "Dateipfad öffnen",
     "copyPath": "Vollständigen Pfad kopieren"
   },
-
   "tray": {
     "open": "Monitor öffnen",
     "dedicated": "Dediziert   {0} / {1} GB   ({2} %)",
     "shared": "Gemeinsam   {0} / {1} GB",
     "top": "Größter Verbraucher   {0}",
     "exportJson": "JSON exportieren (Headless-Brücke)",
+    "startup": "Mit Windows starten",
     "copyJsonPath": "JSON-Pfad kopieren",
     "donate": "♥ Projekt unterstützen",
     "exit": "Beenden",
     "paused": "(angehalten)",
     "balloonText": "Ich überwache weiter hier im Infobereich. Doppelklick zum Wiederöffnen; über Beenden im Menü wird das Programm geschlossen."
   },
-
   "status": {
     "processes": "{0} Prozesse mit GPU",
     "sumDedicated": "Σ dediziert {0}",
@@ -113,6 +105,9 @@
     "hints": "Entf beenden   ·   Strg+C taskkill   ·   F5 aktualisieren   ·   Leertaste Pause",
     "flashCopied": "Befehl kopiert",
     "flashPathCopied": "Pfad kopiert",
+    "flashStartupAll": "startet mit Windows (alle Benutzer)",
+    "flashStartupUser": "startet mit Windows (Ihr Benutzer)",
+    "flashStartupOff": "startet nicht mehr mit Windows",
     "flashKilled": "PID {0} beendet",
     "flashGone": "PID {0} existierte nicht mehr",
     "flashElevationCancelled": "Rechteerhöhung abgebrochen",
@@ -120,7 +115,6 @@
     "flashJsonOff": "JSON-Brücke deaktiviert",
     "flashLanguage": "Sprache: {0}"
   },
-
   "risk": {
     "user": "Benutzer",
     "system": "System",
@@ -136,7 +130,6 @@
       "normal": "Gewöhnlicher Prozess des aktuellen Benutzers."
     }
   },
-
   "restart": {
     "dwm": "Desktop-Compositor. Windows startet ihn selbst neu, aber der Bildschirm flackert und Fenster können ihren Inhalt verlieren.",
     "explorer": "Windows-Shell. Taskleiste und Desktop verschwinden; startet normalerweise selbst neu.",
@@ -154,7 +147,6 @@
     "radeonsoftware": "AMD-Software-Oberfläche.",
     "amdow": "AMD-Overlay/Fenstermanager."
   },
-
   "kill": {
     "title": "Prozess beenden — PID {0}",
     "pid": "PID {0}",
@@ -193,7 +185,15 @@
     "doKill": "PID {0} beenden",
     "noMetadata": "Für diesen Prozess sind keine Metadaten verfügbar."
   },
-
+  "startup": {
+    "title": "Mit Windows starten",
+    "allUsers": "alle Benutzer",
+    "thisUser": "Ihr Benutzer",
+    "uacRefused": "Rechteerhöhung abgelehnt",
+    "exitCode": "der erhöhte Prozess gab Code {0} zurück",
+    "failed": "Die Verknüpfung konnte nicht erstellt werden: {0}",
+    "askUserFolder": "Installation für alle Benutzer nicht möglich: {0}.\r\n\r\nDieser Bereich schreibt in den gemeinsamen Autostart-Ordner von Windows und erfordert Administratorrechte.\r\n\r\nVRAM Monitor stattdessen nur für Ihren Benutzer starten? Das erfordert keinerlei Rechteerhöhung."
+  },
   "killmsg": {
     "terminated": "Prozess {0} beendet.",
     "notFound": "Der Prozess existiert nicht mehr (PID {0}).",
@@ -205,7 +205,6 @@
     "uacCancelled": "Rechteerhöhung vom Benutzer abgebrochen (UAC).",
     "elevateFailed": "Rechteerhöhung fehlgeschlagen: {0}"
   },
-
   "dialog": {
     "accessDeniedTitle": "Zugriff verweigert",
     "accessDeniedRetry": "{0}\r\n\r\nErneut mit Rechteerhöhung versuchen (taskkill über UAC)?",
@@ -218,7 +217,6 @@
     "langErrorsTitle": "Sprachdateien",
     "langErrors": "Probleme beim Laden der Sprachdateien:\r\n\r\n{0}"
   },
-
   "cli": {
     "dedicated": "dediziert",
     "shared": "gemeinsam",
@@ -235,7 +233,6 @@
     "bridgeHistory": " · Verlauf: {0}",
     "writeError": "Fehler beim Schreiben von {0}: {1}"
   },
-
   "help": {
     "title": "Hilfe",
     "body": [
@@ -304,6 +301,12 @@
       "  VramMonitor.exe --headless        ohne Fenster, hält nur die Datei aktuell",
       "  VramMonitor.exe --kill PID        beendet mit denselben Schutzmechanismen",
       "  VramMonitor.exe --help            alle Optionen",
+      "",
+      "",
+      "Das Menü im Infobereich hat außerdem **Mit Windows starten**: es versucht zuerst",
+      "den gemeinsamen Autostart-Ordner für alle Benutzer (fragt nach UAC) und bietet,",
+      "wenn die Rechteerhöhung abgelehnt wird, die Installation nur für Ihren Benutzer an,",
+      "die keinerlei Erhöhung braucht.",
       "",
       "SPRACHEN",
       "",

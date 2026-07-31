@@ -9,6 +9,31 @@ o `release.ps1` usa esta seção como corpo do release e se recusa a publicar se
 
 ## [Não lançado]
 
+## [1.2.0] — 2026-07-30
+
+### Adicionado
+
+- **Iniciar com o Windows**, no menu da bandeja. Ao ligar, o app tenta primeiro a pasta de
+  inicialização **comum** (`shell:common startup`, vale para todos os usuários) relançando-se
+  elevado — o que dispara o UAC. Se a elevação for recusada ou a gravação falhar, um popup
+  oferece instalar **só para o seu usuário** (`shell:startup`), que não exige elevação
+  nenhuma. O item mostra o escopo ativo e desmarcar remove o atalho, pedindo UAC de novo se
+  ele estiver no escopo de todos os usuários.
+- O atalho aponta para o executável com `--tray`, então o monitor sobe direto na área de
+  notificações em vez de abrir a janela na cara de quem ligou o computador.
+- Modos de linha de comando `--install-startup` e `--uninstall-startup`, com `--all-users`.
+  São o que a interface executa elevada, e também servem para scriptar a instalação.
+- Skill do Claude Code em [`.claude/skills/vram`](.claude/skills/vram/SKILL.md): lê a ponte
+  JSON, cai no modo headless quando a ponte está velha e documenta como interpretar os
+  números e os códigos de saída do `--kill`.
+
+### Notas
+
+- O atalho é criado via `IShellLink` (COM), não via `WScript.Shell`: o Windows Script Host
+  pode estar desabilitado por política e o recurso morreria sem motivo.
+- Nos modos disparados pela interface via UAC o app não cria console próprio — sem isso uma
+  janela preta piscava durante a elevação.
+
 ## [1.1.0] — 2026-07-30
 
 ### Adicionado

@@ -5,11 +5,9 @@
     "nativeName": "Português (Brasil)",
     "culture": "pt-BR"
   },
-
   "app": {
     "subtitle": "memória de GPU por processo"
   },
-
   "toolbar": {
     "adapter": "Adaptador",
     "allAdapters": "Todos",
@@ -29,7 +27,6 @@
     "language": "Idioma",
     "languageAuto": "Automático (idioma do Windows)"
   },
-
   "col": {
     "pid": "PID",
     "process": "Processo",
@@ -43,7 +40,6 @@
     "user": "Usuário",
     "detail": "Serviços / descrição"
   },
-
   "seg": {
     "title": "Blocos alocados por segmento do adaptador",
     "adapter": "Adaptador",
@@ -53,14 +49,12 @@
     "dedicatedCommitted": "Dedic. comprometida",
     "totalCommitted": "Total comprometido"
   },
-
   "adapter": {
     "gpuMemory": "Memória da GPU",
     "dedicated": "Dedicada",
     "shared": "Compartilhada",
     "none": "Nenhum adaptador de GPU com atividade detectada."
   },
-
   "detail": {
     "selectHint": "Selecione um processo para ver os detalhes e os blocos alocados.",
     "path": "Caminho",
@@ -79,7 +73,6 @@
     "elevatedNo": "não elevado",
     "elevationUnknown": "sem acesso"
   },
-
   "menu": {
     "kill": "Matar processo",
     "killPid": "Matar (kill) PID {0}",
@@ -89,20 +82,19 @@
     "openLocation": "Abrir local do arquivo",
     "copyPath": "Copiar caminho completo"
   },
-
   "tray": {
     "open": "Abrir monitor",
     "dedicated": "Dedicada   {0} / {1} GB   ({2}%)",
     "shared": "Compartilhada   {0} / {1} GB",
     "top": "Maior consumidor   {0}",
     "exportJson": "Exportar JSON (ponte headless)",
+    "startup": "Iniciar com o Windows",
     "copyJsonPath": "Copiar caminho do JSON",
     "donate": "♥ Apoiar o projeto",
     "exit": "Sair",
     "paused": "(pausado)",
     "balloonText": "Continuo monitorando aqui na área de notificações. Duplo-clique para reabrir; use Sair no menu para encerrar."
   },
-
   "status": {
     "processes": "{0} processos com GPU",
     "sumDedicated": "Σ dedicada {0}",
@@ -113,6 +105,9 @@
     "hints": "Del matar   ·   Ctrl+C taskkill   ·   F5 atualizar   ·   Espaço pausar",
     "flashCopied": "comando copiado",
     "flashPathCopied": "caminho copiado",
+    "flashStartupAll": "iniciando com o Windows (todos os usuários)",
+    "flashStartupUser": "iniciando com o Windows (seu usuário)",
+    "flashStartupOff": "não inicia mais com o Windows",
     "flashKilled": "PID {0} encerrado",
     "flashGone": "PID {0} já não existia",
     "flashElevationCancelled": "elevação cancelada",
@@ -120,7 +115,6 @@
     "flashJsonOff": "ponte JSON desativada",
     "flashLanguage": "idioma: {0}"
   },
-
   "risk": {
     "user": "Usuário",
     "system": "Sistema",
@@ -136,7 +130,6 @@
       "normal": "Processo comum do usuário atual."
     }
   },
-
   "restart": {
     "dwm": "Compositor da área de trabalho. O Windows reinicia sozinho, mas a tela pisca e janelas podem perder conteúdo.",
     "explorer": "Shell do Windows. Barra de tarefas e área de trabalho desaparecem; normalmente reinicia sozinho.",
@@ -154,7 +147,6 @@
     "radeonsoftware": "Interface do AMD Software.",
     "amdow": "AMD Overlay/gerenciador de janelas."
   },
-
   "kill": {
     "title": "Encerrar processo — PID {0}",
     "pid": "PID {0}",
@@ -193,7 +185,15 @@
     "doKill": "Matar PID {0}",
     "noMetadata": "Metadados indisponíveis para este processo."
   },
-
+  "startup": {
+    "title": "Iniciar com o Windows",
+    "allUsers": "todos os usuários",
+    "thisUser": "seu usuário",
+    "uacRefused": "elevação recusada",
+    "exitCode": "o processo elevado retornou o código {0}",
+    "failed": "Não foi possível criar o atalho: {0}",
+    "askUserFolder": "Não foi possível instalar para todos os usuários: {0}.\r\n\r\nEsse escopo grava na pasta de inicialização comum do Windows e exige privilégio de administrador.\r\n\r\nQuer iniciar o VRAM Monitor apenas para o seu usuário? Isso não pede elevação nenhuma."
+  },
   "killmsg": {
     "terminated": "Processo {0} encerrado.",
     "notFound": "O processo não existe mais (PID {0}).",
@@ -205,7 +205,6 @@
     "uacCancelled": "Elevação cancelada pelo usuário (UAC).",
     "elevateFailed": "Falha ao elevar: {0}"
   },
-
   "dialog": {
     "accessDeniedTitle": "Acesso negado",
     "accessDeniedRetry": "{0}\r\n\r\nTentar novamente com elevação (taskkill via UAC)?",
@@ -218,7 +217,6 @@
     "langErrorsTitle": "Arquivos de idioma",
     "langErrors": "Problemas ao carregar arquivos de idioma:\r\n\r\n{0}"
   },
-
   "cli": {
     "dedicated": "dedicada",
     "shared": "compartilhada",
@@ -235,7 +233,6 @@
     "bridgeHistory": " · histórico: {0}",
     "writeError": "erro ao gravar {0}: {1}"
   },
-
   "help": {
     "title": "ajuda",
     "body": [
@@ -302,6 +299,11 @@
       "  VramMonitor.exe --headless        sem janela, só atualizando o arquivo",
       "  VramMonitor.exe --kill PID        encerra com as mesmas travas",
       "  VramMonitor.exe --help            todas as opções",
+      "",
+      "",
+      "O menu da bandeja tem também **Iniciar com o Windows**: ele tenta primeiro a pasta",
+      "de inicialização comum, para todos os usuários (pede UAC) e, se a elevação for",
+      "recusada, oferece instalar só para o seu usuário, que não exige elevação nenhuma.",
       "",
       "IDIOMAS",
       "",

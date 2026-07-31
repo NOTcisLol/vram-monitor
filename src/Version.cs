@@ -21,7 +21,7 @@ namespace VramMonitor
         /// Versão do aplicativo (SemVer: MAIOR.MENOR.CORREÇÃO).
         /// Ao mudar aqui, atualize também o CHANGELOG.md — release.ps1 exige a seção.
         /// </summary>
-        public const string Version = "1.1.0";
+        public const string Version = "1.2.0";
 
         /// <summary>Nome do produto — marca, não traduzido (o subtítulo é que é localizado).</summary>
         public const string Name = "VRAM Monitor";

@@ -31,6 +31,12 @@ namespace VramMonitor
 
         private static bool _consoleReady;
 
+        /// <summary>
+        /// Quando false, não cria console próprio: usado nos modos disparados pela interface
+        /// via UAC, onde um AllocConsole faria piscar uma janela preta na cara do usuário.
+        /// </summary>
+        private static bool _allowAllocConsole = true;
+
         private static void EnsureConsole()
         {
             if (_consoleReady) return;
@@ -38,7 +44,10 @@ namespace VramMonitor
             try
             {
                 if (!AttachConsole(ATTACH_PARENT_PROCESS))
+                {
+                    if (!_allowAllocConsole) return;
                     AllocConsole();
+                }
                 StreamWriter so = new StreamWriter(Console.OpenStandardOutput());
                 so.AutoFlush = true;
                 Console.SetOut(so);
@@ -76,6 +85,8 @@ namespace VramMonitor
                     case "?":
                     case "version":
                     case "icon-preview":
+                    case "install-startup":
+                    case "uninstall-startup":
                         mode = a;
                         return true;
                 }
@@ -114,6 +125,14 @@ namespace VramMonitor
             // Os modos headless também respeitam o idioma salvo (o --text é legível).
             Settings st = Settings.Load();
             I18n.Init(I18n.Resolve(st.Language));
+
+            // Estes dois existem para a própria interface se relançar elevada e gravar o
+            // atalho em shell:common startup, que exige administrador.
+            if (mode == "install-startup" || mode == "uninstall-startup")
+            {
+                _allowAllocConsole = false;   // chamado pela UI via UAC: nada de console piscando
+                return DoStartup(mode == "install-startup", Has(args, "all-users"));
+            }
 
             if (mode == "kill")
                 return DoKill(pid, force);
@@ -233,6 +252,33 @@ namespace VramMonitor
             }
             Out("gravado: " + path);
             return 0;
+        }
+
+        /// <summary>Instala ou remove o atalho de inicialização. Exit 0 = ok, 1 = falhou.</summary>
+        private static int DoStartup(bool install, bool allUsers)
+        {
+            Json j = new Json(true);
+            j.Obj();
+            j.Bool("install", install);
+            j.Bool("allUsers", allUsers);
+            j.Str("path", Startup.PathFor(allUsers));
+            try
+            {
+                if (install) Startup.Install(allUsers);
+                else Startup.Uninstall(allUsers);
+                j.Bool("ok", true);
+                j.EndObj();
+                Out(j.ToString());
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                j.Bool("ok", false);
+                j.Str("error", ex.Message);
+                j.EndObj();
+                Out(j.ToString());
+                return 1;
+            }
         }
 
         // ------------------------------------------------------------------- kill

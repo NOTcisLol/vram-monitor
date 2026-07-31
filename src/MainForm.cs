@@ -61,6 +61,7 @@ namespace VramMonitor
         private ToolStripMenuItem _miCopyPath;
         private ToolStripMenuItem _miTrayOpen;
         private ToolStripMenuItem _miTrayCopyJson;
+        private ToolStripMenuItem _miTrayStartup;
         private ToolStripMenuItem _miTrayDonate;
         private ToolStripMenuItem _miTrayExit;
         private ContextMenuStrip _langMenu;
@@ -565,6 +566,7 @@ namespace VramMonitor
                 _miTrayOpen.Text = I18n.T("tray.open");
                 _miTrayPause.Text = I18n.T(_paused ? "toolbar.resume" : "toolbar.pause");
                 _miTrayJson.Text = I18n.T("tray.exportJson");
+                RefreshStartupItem();
                 _miTrayCopyJson.Text = I18n.T("tray.copyJsonPath");
                 _miTrayDonate.Text = I18n.T("tray.donate");
                 _miTrayExit.Text = I18n.T("tray.exit");
@@ -640,6 +642,142 @@ namespace VramMonitor
             Flash(I18n.F("status.flashLanguage", I18n.Current.Label));
         }
 
+        // ------------------------------------------------------- iniciar com o Windows
+        /// <summary>
+        /// Liga/desliga o início automático. Ao ligar, tenta primeiro em
+        /// shell:common startup (todos os usuários, via UAC); se a elevação for recusada
+        /// ou falhar, oferece a instalação só para o usuário atual em shell:startup.
+        /// </summary>
+        private void ToggleStartup()
+        {
+            StartupScope current = Startup.Current;
+
+            if (current != StartupScope.None)
+            {
+                RemoveStartup(current);
+                RefreshStartupItem();
+                return;
+            }
+
+            // Já elevado: grava direto em "todos os usuários", sem prompt nenhum.
+            if (_elevated)
+            {
+                try
+                {
+                    Startup.Install(true);
+                    Flash(I18n.T("status.flashStartupAll"));
+                }
+                catch (Exception ex)
+                {
+                    ShowStartupError(ex.Message);
+                }
+                RefreshStartupItem();
+                return;
+            }
+
+            string failure = RunElevatedStartup(true, true);
+            if (failure == null)
+            {
+                Flash(I18n.T("status.flashStartupAll"));
+                RefreshStartupItem();
+                return;
+            }
+
+            // UAC recusado ou gravação falhou: oferece o escopo que não precisa de nada.
+            DialogResult dr = MessageBox.Show(this,
+                I18n.F("startup.askUserFolder", failure),
+                I18n.T("startup.title"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (dr == DialogResult.Yes)
+            {
+                try
+                {
+                    Startup.Install(false);
+                    Flash(I18n.T("status.flashStartupUser"));
+                }
+                catch (Exception ex)
+                {
+                    ShowStartupError(ex.Message);
+                }
+            }
+            RefreshStartupItem();
+        }
+
+        private void RemoveStartup(StartupScope scope)
+        {
+            try
+            {
+                if (scope == StartupScope.AllUsers && !_elevated)
+                {
+                    string failure = RunElevatedStartup(false, true);
+                    if (failure != null)
+                    {
+                        ShowStartupError(failure);
+                        return;
+                    }
+                }
+                else
+                {
+                    Startup.Uninstall(scope == StartupScope.AllUsers);
+                }
+                Startup.UninstallUserSilently();   // limpa o do usuário se os dois existirem
+                Flash(I18n.T("status.flashStartupOff"));
+            }
+            catch (Exception ex)
+            {
+                ShowStartupError(ex.Message);
+            }
+        }
+
+        /// <summary>Relança o próprio .exe elevado. Retorna null em sucesso, ou o motivo.</summary>
+        private string RunElevatedStartup(bool install, bool allUsers)
+        {
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo();
+                psi.FileName = Application.ExecutablePath;
+                psi.Arguments = (install ? "--install-startup" : "--uninstall-startup") +
+                                (allUsers ? " --all-users" : "");
+                psi.UseShellExecute = true;
+                psi.Verb = "runas";
+                psi.WindowStyle = ProcessWindowStyle.Hidden;
+
+                Process p = Process.Start(psi);
+                if (p == null) return I18n.T("startup.uacRefused");
+                p.WaitForExit(15000);
+                int code = p.HasExited ? p.ExitCode : -1;
+                p.Dispose();
+                if (code == 0) return null;
+                return I18n.F("startup.exitCode", code);
+            }
+            catch (System.ComponentModel.Win32Exception ex)
+            {
+                return ex.NativeErrorCode == 1223
+                    ? I18n.T("startup.uacRefused")
+                    : ex.Message;
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+        }
+
+        private void ShowStartupError(string message)
+        {
+            MessageBox.Show(this, I18n.F("startup.failed", message), I18n.T("startup.title"),
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
+        private void RefreshStartupItem()
+        {
+            if (_miTrayStartup == null) return;
+            StartupScope scope = Startup.Current;
+            _miTrayStartup.Checked = scope != StartupScope.None;
+            string suffix = "";
+            if (scope == StartupScope.AllUsers) suffix = "   (" + I18n.T("startup.allUsers") + ")";
+            else if (scope == StartupScope.CurrentUser) suffix = "   (" + I18n.T("startup.thisUser") + ")";
+            _miTrayStartup.Text = I18n.T("tray.startup") + suffix;
+        }
+
         private void UpdateKillButton()
         {
             if (_selected == null)
@@ -700,6 +838,10 @@ namespace VramMonitor
                 });
             _miTrayJson.Checked = _exportJson;
             _trayMenu.Items.Add(_miTrayJson);
+
+            _miTrayStartup = new ToolStripMenuItem("", null,
+                delegate(object s, EventArgs e) { ToggleStartup(); });
+            _trayMenu.Items.Add(_miTrayStartup);
 
             _miTrayCopyJson = new ToolStripMenuItem("", null,
                 delegate(object s, EventArgs e)
