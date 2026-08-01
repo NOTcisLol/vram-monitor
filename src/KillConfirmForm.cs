@@ -92,7 +92,7 @@ namespace VramMonitor
             ClientSize = new Size(Dpi.S(640), Dpi.S(100));
 
             bool blocked = _pi.Risk == RiskLevel.Critical;
-            bool needsAck = _pi.Risk == RiskLevel.System || _pi.Risk == RiskLevel.Elevated;
+            bool needsAck = !blocked;   // seguranca: nunca matar com um clique so
 
             Panel info = new Panel();
             info.Location = new Point(0, 0);
@@ -163,7 +163,8 @@ namespace VramMonitor
                 _ack.BackColor = UiTheme.Bg;
                 _ack.FlatStyle = FlatStyle.Flat;
                 _ack.Font = _fSmall;
-                _ack.Text = I18n.T(_pi.Risk == RiskLevel.System ? "kill.ackSystem" : "kill.ackElevated");
+                _ack.Text = I18n.T(_pi.Risk == RiskLevel.System ? "kill.ackSystem"
+                                   : (_pi.Risk == RiskLevel.Elevated ? "kill.ackElevated" : "kill.ackUser"));
                 _ack.CheckedChanged += delegate(object s, EventArgs e)
                 {
                     _kill.Enabled = _ack.Checked;
@@ -174,7 +175,8 @@ namespace VramMonitor
                 y += Dpi.S(32);
             }
 
-            if (!_monitorElevated && needsAck && !blocked)
+            if (!_monitorElevated && !blocked &&
+                (_pi.Risk == RiskLevel.System || _pi.Risk == RiskLevel.Elevated))
             {
                 Label uac = new Label();
                 uac.AutoSize = false;

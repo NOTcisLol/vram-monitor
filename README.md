@@ -158,8 +158,14 @@ VramMonitor.exe --help
 Opções: `--interval MS`, `--count N`, `--duration S`, `--top N`, `--min-mb N`, `--out PATH`,
 `--jsonl PATH`, `--compact`, `--warmup MS`.
 
-Códigos de saída do `--kill`: `0` ok · `3` processo crítico (bloqueado) · `4` exige `--force` ·
-`5` processo não existe · `6` acesso negado · `1` outra falha.
+Códigos de saída do `--kill`: `0` ok · `3` processo crítico (bloqueado) · `5` processo não existe ·
+`6` acesso negado · `7` cancelado no diálogo · `8` UAC recusado · `65` caminho de saída bloqueado ·
+`1` outra falha.
+
+**Encerrar exige duas aprovações humanas:** o `--kill` sem elevação relança o executável elevado
+(UAC) e o filho abre o diálogo de confirmação, onde a caixa de ciência é obrigatória. Nenhum flag
+pula isso. Não é para impedir o que um atacante já pode fazer sozinho com `taskkill` — é para o
+executável não servir de ferramenta cômoda para automação hostil. Veja [SECURITY.md](SECURITY.md).
 
 ### Formato do JSON
 
@@ -217,6 +223,14 @@ Processos vêm ordenados por `dedicatedBytes` decrescente. Strings são ASCII pu
 
 O código é C# 5 (limite do `csc.exe` do .NET Framework) e todo literal em pixels passa por
 `Dpi.S()`, porque o app é system-DPI-aware.
+
+## Segurança
+
+O modelo de ameaça, as vulnerabilidades encontradas e corrigidas, e — principalmente — o que este
+programa **não** tem como proteger estão em [SECURITY.md](SECURITY.md). Resumo honesto: o app não
+é escada de privilégio e o JSON não expõe nada que qualquer processo não consiga enumerar sozinho;
+o risco real era o autostart de todos os usuários apontando para um binário em pasta gravável, e
+isso foi corrigido.
 
 ## Apoiar
 

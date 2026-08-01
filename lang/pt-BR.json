@@ -183,7 +183,8 @@
     "cancel": "Cancelar",
     "close": "Fechar",
     "doKill": "Matar PID {0}",
-    "noMetadata": "Metadados indisponíveis para este processo."
+    "noMetadata": "Metadados indisponíveis para este processo.",
+    "ackUser": "Entendo e quero encerrar este processo"
   },
   "startup": {
     "title": "Iniciar com o Windows",
@@ -192,7 +193,8 @@
     "uacRefused": "elevação recusada",
     "exitCode": "o processo elevado retornou o código {0}",
     "failed": "Não foi possível criar o atalho: {0}",
-    "askUserFolder": "Não foi possível instalar para todos os usuários: {0}.\r\n\r\nEsse escopo grava na pasta de inicialização comum do Windows e exige privilégio de administrador.\r\n\r\nQuer iniciar o VRAM Monitor apenas para o seu usuário? Isso não pede elevação nenhuma."
+    "askUserFolder": "Não foi possível instalar para todos os usuários: {0}.\r\n\r\nEsse escopo grava na pasta de inicialização comum do Windows e exige privilégio de administrador.\r\n\r\nQuer iniciar o VRAM Monitor apenas para o seu usuário? Isso não pede elevação nenhuma.",
+    "promoted": "Para o escopo de todos os usuários o executável foi copiado para uma pasta que só administrador escreve:\r\n\r\n{0}\r\n\r\nO atalho aponta para lá. Do contrário, qualquer código rodando como você poderia trocar o binário e ele executaria na sessão de todos no logon."
   },
   "killmsg": {
     "terminated": "Processo {0} encerrado.",
@@ -203,7 +205,8 @@
     "elevatedRan": "taskkill /F /PID {0} executado com elevação.",
     "taskkillCode": "taskkill retornou código {0}.",
     "uacCancelled": "Elevação cancelada pelo usuário (UAC).",
-    "elevateFailed": "Falha ao elevar: {0}"
+    "elevateFailed": "Falha ao elevar: {0}",
+    "pidRecycled": "O PID {0} agora pertence a outro processo (foi reciclado). Nada foi encerrado."
   },
   "dialog": {
     "accessDeniedTitle": "Acesso negado",

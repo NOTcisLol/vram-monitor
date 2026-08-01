@@ -109,6 +109,17 @@ namespace VramMonitor
             bool compact = Has(args, "compact");
             long minBytes = (long)minMb * 1024L * 1024L;
 
+            try
+            {
+                SnapshotJson.EnsureSafeOutputPath(outPath);
+                SnapshotJson.EnsureSafeOutputPath(jsonl);
+            }
+            catch (Exception ex)
+            {
+                Out("{\"error\":\"" + ex.Message + "\"}");
+                return 65;
+            }
+
             if (mode == "help" || mode == "h" || mode == "?")
             {
                 PrintHelp();
@@ -313,22 +324,35 @@ namespace VramMonitor
                 return 3;
             }
 
-            bool risky = pi != null && (pi.Risk == RiskLevel.System || pi.Risk == RiskLevel.Elevated);
-            if (risky && !force)
+            // SEGURANÇA: encerrar processo pela linha de comando exige DUAS aprovações humanas —
+            // o consentimento do UAC e a caixa marcada no diálogo. Sem isso o executável seria um
+            // "living off the land binary" cômodo para automação hostil. Nenhum flag pula isso:
+            // --force não é bypass, só continua valendo para o fallback de acesso negado.
+            if (!ProcessCatalog.IsCurrentProcessElevated())
             {
-                j.Bool("ok", false);
-                j.Str("reason", "needs-force");
-                j.Str("message", "Risk level " + SnapshotJson.RiskCode(pi.Risk) +
-                                 ": repeat with --force to confirm.");
-                if (pi.Services.Count > 0) j.Str("services", pi.ServicesText);
+                int code = RelaunchElevatedKill(pid, force);
+                j.Bool("ok", code == 0);
+                j.Str("reason", code == 0 ? "confirmed" : "not-confirmed");
+                j.Str("message", "Kill requires UAC consent plus an explicit confirmation dialog.");
+                j.Num("elevatedExitCode", code);
                 j.EndObj();
                 Out(j.ToString());
-                return 4;
+                return code;
             }
 
-            KillResult res = ProcessCatalog.Kill(pid);
+            if (!ConfirmKillDialog(pi, pid))
+            {
+                j.Bool("ok", false);
+                j.Str("reason", "cancelled-by-user");
+                j.EndObj();
+                Out(j.ToString());
+                return 7;
+            }
+
+            KillResult res = ProcessCatalog.Kill(pid, pi != null ? pi.CreationTime : 0L);
             if (res.Outcome == KillOutcome.AccessDenied && force)
                 res = ProcessCatalog.KillElevated(pid);
+            AuditLog.KillAttempt(pid, pi, "cli", res);
 
             j.Bool("ok", res.Outcome == KillOutcome.Success);
             j.Str("outcome", res.Outcome.ToString().ToLowerInvariant());
@@ -341,6 +365,60 @@ namespace VramMonitor
             if (res.Outcome == KillOutcome.NotFound) return 5;
             if (res.Outcome == KillOutcome.AccessDenied) return 6;
             return 1;
+        }
+
+        /// <summary>Relança o próprio .exe elevado para a confirmação. Devolve o código do filho.</summary>
+        private static int RelaunchElevatedKill(int pid, bool force)
+        {
+            try
+            {
+                System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo();
+                psi.FileName = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                psi.Arguments = "--kill " + pid.ToString(CultureInfo.InvariantCulture) +
+                                (force ? " --force" : "");
+                psi.UseShellExecute = true;
+                psi.Verb = "runas";
+                System.Diagnostics.Process p = System.Diagnostics.Process.Start(psi);
+                if (p == null) return 8;
+                p.WaitForExit(120000);
+                int code = p.HasExited ? p.ExitCode : 8;
+                p.Dispose();
+                return code;
+            }
+            catch (System.ComponentModel.Win32Exception ex)
+            {
+                return ex.NativeErrorCode == 1223 ? 8 : 1;   // 1223 = UAC recusado
+            }
+            catch (Exception)
+            {
+                return 1;
+            }
+        }
+
+        /// <summary>Mostra o mesmo diálogo da interface, com a caixa de ciência obrigatória.</summary>
+        private static bool ConfirmKillDialog(ProcInfo pi, int pid)
+        {
+            try
+            {
+                System.Windows.Forms.Application.EnableVisualStyles();
+                if (pi == null)
+                {
+                    pi = new ProcInfo();
+                    pi.Pid = pid;
+                    pi.Name = "(pid " + pid.ToString(CultureInfo.InvariantCulture) + ")";
+                    pi.Risk = RiskLevel.Elevated;
+                    pi.RiskNoteKey = "kill.noMetadata";
+                }
+                using (KillConfirmForm dlg = new KillConfirmForm(pi, null, true))
+                {
+                    dlg.TopMost = true;
+                    return dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK;
+                }
+            }
+            catch (Exception)
+            {
+                return false;   // sem diálogo, sem kill
+            }
         }
 
         // ------------------------------------------------------------------- texto
@@ -402,10 +480,21 @@ namespace VramMonitor
             Out(sb.ToString());
         }
 
+        /// <summary>
+        /// Nome de processo é string controlada por terceiros: sem limpar, um processo com
+        /// sequências ANSI no nome reescreveria o que aparece no terminal de quem lê a tabela.
+        /// </summary>
         private static string Cut(string s, int n)
         {
             if (s == null) return "";
-            return s.Length <= n ? s : s.Substring(0, n - 1) + "…";
+            StringBuilder sb = new StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                sb.Append(c < 0x20 || c == 0x7F ? '?' : c);
+            }
+            string clean = sb.ToString();
+            return clean.Length <= n ? clean : clean.Substring(0, n - 1) + "…";
         }
 
         private static string Pad(string s, int n)

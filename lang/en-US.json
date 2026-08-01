@@ -183,7 +183,8 @@
     "cancel": "Cancel",
     "close": "Close",
     "doKill": "End PID {0}",
-    "noMetadata": "Metadata unavailable for this process."
+    "noMetadata": "Metadata unavailable for this process.",
+    "ackUser": "I understand and want to end this process"
   },
   "startup": {
     "title": "Start with Windows",
@@ -192,7 +193,8 @@
     "uacRefused": "elevation refused",
     "exitCode": "the elevated process returned code {0}",
     "failed": "The shortcut could not be created: {0}",
-    "askUserFolder": "Could not install for all users: {0}.\r\n\r\nThat scope writes to the Windows common startup folder and needs administrator rights.\r\n\r\nStart VRAM Monitor for your user only instead? That does not require any elevation."
+    "askUserFolder": "Could not install for all users: {0}.\r\n\r\nThat scope writes to the Windows common startup folder and needs administrator rights.\r\n\r\nStart VRAM Monitor for your user only instead? That does not require any elevation.",
+    "promoted": "For the all-users scope the executable was copied to a folder only administrators can write:\r\n\r\n{0}\r\n\r\nThe shortcut points there. Otherwise any code running as you could swap the binary and it would run in every user's session at logon."
   },
   "killmsg": {
     "terminated": "Process {0} ended.",
@@ -203,7 +205,8 @@
     "elevatedRan": "taskkill /F /PID {0} ran with elevation.",
     "taskkillCode": "taskkill returned code {0}.",
     "uacCancelled": "Elevation cancelled by the user (UAC).",
-    "elevateFailed": "Failed to elevate: {0}"
+    "elevateFailed": "Failed to elevate: {0}",
+    "pidRecycled": "PID {0} now belongs to a different process (it was recycled). Nothing was ended."
   },
   "dialog": {
     "accessDeniedTitle": "Access denied",

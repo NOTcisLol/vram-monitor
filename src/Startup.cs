@@ -72,8 +72,27 @@ namespace VramMonitor
             return allUsers ? CommonPath : UserPath;
         }
 
-        /// <summary>Cria o atalho. Lança em caso de falha, com a mensagem do sistema.</summary>
-        public static void Install(bool allUsers)
+        /// <summary>Onde o binário fica quando promovido para o escopo de todos os usuários.</summary>
+        public static string ProgramFilesTarget
+        {
+            get
+            {
+                string pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+                return Path.Combine(Path.Combine(pf, "VRAM Monitor"), "VramMonitor.exe");
+            }
+        }
+
+        /// <summary>
+        /// Cria o atalho. Lança em caso de falha, com a mensagem do sistema.
+        ///
+        /// SEGURANÇA: no escopo de todos os usuários o atalho roda na sessão de QUALQUER um que
+        /// fizer logon, inclusive administradores. Se ele apontasse para um .exe em pasta que o
+        /// usuário comum pode escrever (Documents, Downloads, Área de Trabalho...), bastaria um
+        /// malware sem elevação trocar o binário para ganhar execução na sessão dos outros — uma
+        /// escalada de privilégio criada pelo nosso próprio recurso. Por isso, nesse escopo, o
+        /// binário é promovido para Program Files antes de o atalho ser criado.
+        /// </summary>
+        public static string Install(bool allUsers)
         {
             string link = PathFor(allUsers);
             if (string.IsNullOrEmpty(link))
@@ -84,8 +103,89 @@ namespace VramMonitor
                 Directory.CreateDirectory(dir);
 
             string exe = System.Reflection.Assembly.GetExecutingAssembly().Location;
+
+            if (allUsers && !IsProtectedDirectory(Path.GetDirectoryName(exe)))
+                exe = PromoteToProgramFiles(exe);
+
             CreateShortcut(link, exe, LinkArgs, Path.GetDirectoryName(exe),
                            AppInfo.Name + " " + AppInfo.Version);
+            return exe;
+        }
+
+        /// <summary>Copia o executável para Program Files, que só administrador escreve.</summary>
+        private static string PromoteToProgramFiles(string sourceExe)
+        {
+            string target = ProgramFilesTarget;
+            string dir = Path.GetDirectoryName(target);
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);   // herda a ACL do Program Files
+
+            // Se já estamos rodando de lá, não há o que copiar.
+            if (string.Equals(Path.GetFullPath(sourceExe), Path.GetFullPath(target),
+                              StringComparison.OrdinalIgnoreCase))
+                return target;
+
+            File.Copy(sourceExe, target, true);
+
+            if (!IsProtectedDirectory(dir))
+                throw new UnauthorizedAccessException(
+                    "o destino em Program Files continua gravavel por usuario comum");
+
+            return target;
+        }
+
+        /// <summary>
+        /// true quando só SYSTEM, Administradores, TrustedInstaller ou CREATOR OWNER têm
+        /// permissão de escrita. Qualquer outra identidade com escrita torna o diretório
+        /// inadequado para autostart de todos os usuários. Falha na leitura da ACL = não confiável.
+        /// </summary>
+        public static bool IsProtectedDirectory(string dir)
+        {
+            if (string.IsNullOrEmpty(dir)) return false;
+            try
+            {
+                System.Security.AccessControl.DirectorySecurity sec = Directory.GetAccessControl(dir);
+                System.Security.AccessControl.AuthorizationRuleCollection rules =
+                    sec.GetAccessRules(true, true, typeof(System.Security.Principal.SecurityIdentifier));
+
+                const System.Security.AccessControl.FileSystemRights WriteMask =
+                    System.Security.AccessControl.FileSystemRights.WriteData |
+                    System.Security.AccessControl.FileSystemRights.CreateFiles |
+                    System.Security.AccessControl.FileSystemRights.CreateDirectories |
+                    System.Security.AccessControl.FileSystemRights.Modify |
+                    System.Security.AccessControl.FileSystemRights.FullControl |
+                    System.Security.AccessControl.FileSystemRights.TakeOwnership |
+                    System.Security.AccessControl.FileSystemRights.ChangePermissions;
+
+                foreach (System.Security.AccessControl.FileSystemAccessRule rule in rules)
+                {
+                    if (rule.AccessControlType != System.Security.AccessControl.AccessControlType.Allow)
+                        continue;
+                    if ((rule.FileSystemRights & WriteMask) == 0)
+                        continue;
+
+                    System.Security.Principal.SecurityIdentifier sid =
+                        rule.IdentityReference as System.Security.Principal.SecurityIdentifier;
+                    if (sid == null) return false;
+                    if (!IsAdministrativeSid(sid)) return false;
+                }
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;   // não deu para verificar: trata como inseguro
+            }
+        }
+
+        private static bool IsAdministrativeSid(System.Security.Principal.SecurityIdentifier sid)
+        {
+            string v = sid.Value;
+            if (v == "S-1-5-18") return true;        // LOCAL SYSTEM
+            if (v == "S-1-5-32-544") return true;    // BUILTIN\Administrators
+            if (v == "S-1-3-0") return true;         // CREATOR OWNER
+            if (v == "S-1-5-32-549") return true;    // Server Operators
+            if (v.StartsWith("S-1-5-80-", StringComparison.Ordinal)) return true;   // serviços (TrustedInstaller)
+            return false;
         }
 
         public static void Uninstall(bool allUsers)

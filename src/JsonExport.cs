@@ -478,6 +478,55 @@ namespace VramMonitor
             return j.ToString();
         }
 
+        /// <summary>
+        /// SEGURANÇA: --out e --jsonl aceitam caminho arbitrário, e parte do conteúdo gravado
+        /// (nome e caminho de processo) é controlada por terceiros. Sem essa trava, o app viraria
+        /// uma primitiva cômoda de escrita: apontar a saída para uma pasta de inicialização, ou
+        /// para um .bat/.ps1, e deixar um processo com nome forjado injetar a linha desejada.
+        /// </summary>
+        public static void EnsureSafeOutputPath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+
+            string full;
+            try { full = Path.GetFullPath(path); }
+            catch (Exception) { throw new IOException("caminho de saida invalido"); }
+
+            string ext = (Path.GetExtension(full) ?? "").ToLowerInvariant();
+            string[] executable = new string[]
+            {
+                ".exe", ".com", ".bat", ".cmd", ".ps1", ".psm1", ".vbs", ".vbe", ".js", ".jse",
+                ".wsf", ".wsh", ".msi", ".msc", ".scr", ".lnk", ".url", ".hta", ".cpl", ".dll", ".reg"
+            };
+            for (int i = 0; i < executable.Length; i++)
+            {
+                if (ext == executable[i])
+                    throw new IOException("extensao de saida nao permitida: " + ext);
+            }
+
+            Environment.SpecialFolder[] forbidden = new Environment.SpecialFolder[]
+            {
+                Environment.SpecialFolder.Startup,
+                Environment.SpecialFolder.CommonStartup,
+                Environment.SpecialFolder.System,
+                Environment.SpecialFolder.SystemX86,
+                Environment.SpecialFolder.Windows,
+                Environment.SpecialFolder.ProgramFiles,
+                Environment.SpecialFolder.ProgramFilesX86,
+                Environment.SpecialFolder.CommonStartMenu,
+                Environment.SpecialFolder.StartMenu
+            };
+            for (int i = 0; i < forbidden.Length; i++)
+            {
+                string dir;
+                try { dir = Environment.GetFolderPath(forbidden[i]); }
+                catch (Exception) { continue; }
+                if (string.IsNullOrEmpty(dir)) continue;
+                if (full.StartsWith(dir.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("pasta de saida nao permitida: " + dir);
+            }
+        }
+
         /// <summary>Grava o arquivo da ponte de forma que o leitor nunca veja conteúdo parcial.</summary>
         public static void WriteFile(string path, string content)
         {

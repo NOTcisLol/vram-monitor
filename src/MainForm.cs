@@ -5,6 +5,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -519,8 +520,7 @@ namespace VramMonitor
             {
                 if (_selected != null && _selected.Pi != null && _selected.Pi.ExePath.Length > 0)
                 {
-                    try { Process.Start("explorer.exe", "/select,\"" + _selected.Pi.ExePath + "\""); }
-                    catch (Exception) { }
+                    RevealInExplorer(_selected.Pi.ExePath);
                 }
             });
             _menu.Items.Add(_miOpenLocation);
@@ -650,8 +650,7 @@ namespace VramMonitor
 
                 _miOptOpenJson = new ToolStripMenuItem("", null, delegate(object s, EventArgs e)
                 {
-                    try { Process.Start("explorer.exe", "/select,\"" + _jsonPath + "\""); }
-                    catch (Exception) { }
+                    RevealInExplorer(_jsonPath);
                 });
                 _optionsMenu.Items.Add(_miOptOpenJson);
             }
@@ -1827,6 +1826,30 @@ namespace VramMonitor
             Flash(I18n.T("status.flashCopied"));
         }
 
+        /// <summary>
+        /// SEGURANÇA: o caminho vem de outro processo, ou seja, é string controlada por terceiro.
+        /// Concatenar direto em "/select,\"...\"" permitiria a um processo com aspas no caminho
+        /// injetar argumentos no explorer. Aqui o caminho é validado e passado como argumento único.
+        /// </summary>
+        private static void RevealInExplorer(string path)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(path)) return;
+                if (path.IndexOf('"') >= 0 || path.IndexOfAny(new char[] { '\r', '\n', '\0' }) >= 0)
+                    return;
+                if (!File.Exists(path)) return;
+
+                ProcessStartInfo psi = new ProcessStartInfo();
+                psi.FileName = "explorer.exe";
+                psi.Arguments = "/select,\"" + Path.GetFullPath(path) + "\"";
+                psi.UseShellExecute = false;
+                Process p = Process.Start(psi);
+                if (p != null) p.Dispose();
+            }
+            catch (Exception) { }
+        }
+
         private void TrySetClipboard(string text)
         {
             if (string.IsNullOrEmpty(text)) return;
@@ -1920,14 +1943,18 @@ namespace VramMonitor
                     return;
             }
 
-            KillResult res = ProcessCatalog.Kill(pid);
+            KillResult res = ProcessCatalog.Kill(pid, pi.CreationTime);
+            AuditLog.KillAttempt(pid, pi, "ui", res);
             if (res.Outcome == KillOutcome.AccessDenied)
             {
                 DialogResult dr = MessageBox.Show(this,
                     I18n.F("dialog.accessDeniedRetry", res.Message),
                     I18n.T("dialog.accessDeniedTitle"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                 if (dr == DialogResult.Yes)
+                {
                     res = ProcessCatalog.KillElevated(pid);
+                    AuditLog.KillAttempt(pid, pi, "ui-uac", res);
+                }
             }
 
             if (res.Outcome == KillOutcome.Success)

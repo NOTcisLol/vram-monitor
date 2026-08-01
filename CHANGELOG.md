@@ -9,6 +9,47 @@ o `release.ps1` usa esta seção como corpo do release e se recusa a publicar se
 
 ## [Não lançado]
 
+## [1.3.0] — 2026-07-31
+
+Revisão de segurança. Detalhes e modelo de ameaça em [SECURITY.md](SECURITY.md).
+
+### Corrigido
+
+- **Elevação de privilégio pelo autostart de todos os usuários.** O atalho em
+  `shell:common startup` roda na sessão de qualquer um que faça logon, inclusive
+  administradores, e apontava para o executável de onde o app rodava — tipicamente uma pasta
+  gravável pelo usuário. Qualquer código **sem elevação** podia trocar o binário e ganhar
+  execução na sessão de todos no boot seguinte. Agora o helper elevado verifica a ACL do
+  diretório e, se ele não for restrito a administradores, copia o executável para
+  `%ProgramFiles%\VRAM Monitor\` antes de criar o atalho. A verificação falha fechada.
+- **Sequestro de DLL.** `pdh.dll`, `dxgi.dll` e `uxtheme.dll` eram resolvidas por nome, e o
+  diretório do executável precede `System32` na ordem de busca. Agora o `Main` chama
+  `SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32)`.
+- **Reuso de PID.** Entre a amostra e o clique o PID pode ter sido reciclado; o código matava
+  o número, não o processo mostrado. O horário de criação passa a ser conferido imediatamente
+  antes de `TerminateProcess`.
+- **Injeção de argumento** em "abrir local do arquivo": o caminho vem de outro processo e era
+  concatenado em `explorer.exe /select,"..."`. Agora é validado e passado sem shell.
+- **Uso como primitiva de escrita.** `--out` e `--jsonl` aceitavam qualquer caminho, com
+  conteúdo parcialmente controlado por terceiros (nomes de processo). Extensões executáveis e
+  pastas sensíveis passam a ser recusadas.
+- **Injeção de terminal** por nome de processo com sequências ANSI na saída `--text`.
+
+### Alterado
+
+- A caixa de ciência no diálogo de encerramento é **obrigatória em todos os níveis de risco**.
+  Nenhum processo morre com um clique só.
+- `--kill` pela linha de comando exige **UAC mais o diálogo de confirmação**: duas aprovações
+  humanas. `--force` deixou de ser bypass e só vale para o fallback de acesso negado. A recusa
+  de processo crítico acontece antes de qualquer tentativa de elevação.
+
+### Adicionado
+
+- Log de auditoria em `%LOCALAPPDATA%\VramMonitor\kills.log` com horário, origem, PID, nome,
+  risco, estado de elevação e resultado.
+- `SECURITY.md` com o modelo de ameaça, incluindo o que o programa **não** protege e por que
+  cifrar a ponte com chave local não seria uma barreira.
+
 ## [1.2.0] — 2026-07-30
 
 ### Adicionado

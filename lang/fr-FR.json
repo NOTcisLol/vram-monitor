@@ -183,7 +183,8 @@
     "cancel": "Annuler",
     "close": "Fermer",
     "doKill": "Terminer le PID {0}",
-    "noMetadata": "Métadonnées indisponibles pour ce processus."
+    "noMetadata": "Métadonnées indisponibles pour ce processus.",
+    "ackUser": "Je comprends et je veux terminer ce processus"
   },
   "startup": {
     "title": "Démarrer avec Windows",
@@ -192,7 +193,8 @@
     "uacRefused": "élévation refusée",
     "exitCode": "le processus élevé a renvoyé le code {0}",
     "failed": "Le raccourci n'a pas pu être créé : {0}",
-    "askUserFolder": "Installation impossible pour tous les utilisateurs : {0}.\r\n\r\nCette portée écrit dans le dossier de démarrage commun de Windows et exige des droits administrateur.\r\n\r\nDémarrer VRAM Monitor uniquement pour votre session ? Cela ne demande aucune élévation."
+    "askUserFolder": "Installation impossible pour tous les utilisateurs : {0}.\r\n\r\nCette portée écrit dans le dossier de démarrage commun de Windows et exige des droits administrateur.\r\n\r\nDémarrer VRAM Monitor uniquement pour votre session ? Cela ne demande aucune élévation.",
+    "promoted": "Pour la portée « tous les utilisateurs », l'exécutable a été copié dans un dossier où seuls les administrateurs peuvent écrire :\r\n\r\n{0}\r\n\r\nLe raccourci y pointe. Sinon, n'importe quel code s'exécutant sous votre compte pourrait remplacer le binaire, qui s'exécuterait alors dans la session de tous à l'ouverture."
   },
   "killmsg": {
     "terminated": "Processus {0} terminé.",
@@ -203,7 +205,8 @@
     "elevatedRan": "taskkill /F /PID {0} exécuté avec élévation.",
     "taskkillCode": "taskkill a renvoyé le code {0}.",
     "uacCancelled": "Élévation annulée par l'utilisateur (UAC).",
-    "elevateFailed": "Échec de l'élévation : {0}"
+    "elevateFailed": "Échec de l'élévation : {0}",
+    "pidRecycled": "Le PID {0} appartient maintenant à un autre processus (il a été recyclé). Rien n'a été terminé."
   },
   "dialog": {
     "accessDeniedTitle": "Accès refusé",

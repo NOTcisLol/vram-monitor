@@ -183,7 +183,8 @@
     "cancel": "Cancelar",
     "close": "Cerrar",
     "doKill": "Terminar PID {0}",
-    "noMetadata": "Metadatos no disponibles para este proceso."
+    "noMetadata": "Metadatos no disponibles para este proceso.",
+    "ackUser": "Entiendo y quiero terminar este proceso"
   },
   "startup": {
     "title": "Iniciar con Windows",
@@ -192,7 +193,8 @@
     "uacRefused": "elevación rechazada",
     "exitCode": "el proceso elevado devolvió el código {0}",
     "failed": "No se pudo crear el acceso directo: {0}",
-    "askUserFolder": "No se pudo instalar para todos los usuarios: {0}.\r\n\r\nEse ámbito escribe en la carpeta de inicio común de Windows y requiere permisos de administrador.\r\n\r\n¿Iniciar VRAM Monitor solo para su usuario? Eso no requiere ninguna elevación."
+    "askUserFolder": "No se pudo instalar para todos los usuarios: {0}.\r\n\r\nEse ámbito escribe en la carpeta de inicio común de Windows y requiere permisos de administrador.\r\n\r\n¿Iniciar VRAM Monitor solo para su usuario? Eso no requiere ninguna elevación.",
+    "promoted": "Para el ámbito de todos los usuarios el ejecutable se copió a una carpeta donde solo escriben los administradores:\r\n\r\n{0}\r\n\r\nEl acceso directo apunta ahí. De lo contrario, cualquier código ejecutándose como usted podría cambiar el binario y se ejecutaría en la sesión de todos al iniciar sesión."
   },
   "killmsg": {
     "terminated": "Proceso {0} terminado.",
@@ -203,7 +205,8 @@
     "elevatedRan": "taskkill /F /PID {0} ejecutado con elevación.",
     "taskkillCode": "taskkill devolvió el código {0}.",
     "uacCancelled": "Elevación cancelada por el usuario (UAC).",
-    "elevateFailed": "No se pudo elevar: {0}"
+    "elevateFailed": "No se pudo elevar: {0}",
+    "pidRecycled": "El PID {0} ahora pertenece a otro proceso (fue reciclado). No se terminó nada."
   },
   "dialog": {
     "accessDeniedTitle": "Acceso denegado",

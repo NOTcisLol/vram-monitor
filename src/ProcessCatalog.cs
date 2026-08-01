@@ -519,9 +519,27 @@ namespace VramMonitor
         }
 
         // ------------------------------------------------------------------ kill
-        public static KillResult Kill(int pid)
+        /// <summary>
+        /// Encerra o processo. <paramref name="expectedCreationTime"/> (0 = não verificar) protege
+        /// contra reuso de PID: entre a amostra e o clique o processo pode ter morrido e o Windows
+        /// pode ter reciclado o número para outro — matar "o PID" sem conferir identidade encerraria
+        /// um processo inocente.
+        /// </summary>
+        public static KillResult Kill(int pid, long expectedCreationTime)
         {
             KillResult r = new KillResult();
+
+            if (expectedCreationTime != 0)
+            {
+                long now = ReadCreationTime(pid);
+                if (now != 0 && now != expectedCreationTime)
+                {
+                    r.Outcome = KillOutcome.NotFound;
+                    r.Message = I18n.F("killmsg.pidRecycled", pid);
+                    return r;
+                }
+            }
+
             IntPtr h = Native.OpenProcess(Native.PROCESS_TERMINATE, false, (uint)pid);
             if (h == IntPtr.Zero)
             {

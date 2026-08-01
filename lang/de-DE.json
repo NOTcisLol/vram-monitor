@@ -183,7 +183,8 @@
     "cancel": "Abbrechen",
     "close": "Schließen",
     "doKill": "PID {0} beenden",
-    "noMetadata": "Für diesen Prozess sind keine Metadaten verfügbar."
+    "noMetadata": "Für diesen Prozess sind keine Metadaten verfügbar.",
+    "ackUser": "Mir ist das klar und ich will diesen Prozess beenden"
   },
   "startup": {
     "title": "Mit Windows starten",
@@ -192,7 +193,8 @@
     "uacRefused": "Rechteerhöhung abgelehnt",
     "exitCode": "der erhöhte Prozess gab Code {0} zurück",
     "failed": "Die Verknüpfung konnte nicht erstellt werden: {0}",
-    "askUserFolder": "Installation für alle Benutzer nicht möglich: {0}.\r\n\r\nDieser Bereich schreibt in den gemeinsamen Autostart-Ordner von Windows und erfordert Administratorrechte.\r\n\r\nVRAM Monitor stattdessen nur für Ihren Benutzer starten? Das erfordert keinerlei Rechteerhöhung."
+    "askUserFolder": "Installation für alle Benutzer nicht möglich: {0}.\r\n\r\nDieser Bereich schreibt in den gemeinsamen Autostart-Ordner von Windows und erfordert Administratorrechte.\r\n\r\nVRAM Monitor stattdessen nur für Ihren Benutzer starten? Das erfordert keinerlei Rechteerhöhung.",
+    "promoted": "Für den Bereich „alle Benutzer“ wurde die ausführbare Datei in einen Ordner kopiert, in den nur Administratoren schreiben können:\r\n\r\n{0}\r\n\r\nDie Verknüpfung zeigt dorthin. Andernfalls könnte beliebiger Code, der als Sie läuft, die Datei austauschen — und sie liefe beim Anmelden in der Sitzung aller Benutzer."
   },
   "killmsg": {
     "terminated": "Prozess {0} beendet.",
@@ -203,7 +205,8 @@
     "elevatedRan": "taskkill /F /PID {0} mit Rechteerhöhung ausgeführt.",
     "taskkillCode": "taskkill gab Code {0} zurück.",
     "uacCancelled": "Rechteerhöhung vom Benutzer abgebrochen (UAC).",
-    "elevateFailed": "Rechteerhöhung fehlgeschlagen: {0}"
+    "elevateFailed": "Rechteerhöhung fehlgeschlagen: {0}",
+    "pidRecycled": "PID {0} gehört jetzt zu einem anderen Prozess (wiederverwendet). Es wurde nichts beendet."
   },
   "dialog": {
     "accessDeniedTitle": "Zugriff verweigert",
